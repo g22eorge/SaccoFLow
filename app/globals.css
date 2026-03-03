@@ -1,26 +1,141 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f2f5fb;
+  --foreground: #172033;
+  --surface: #ffffff;
+  --surface-soft: #f5f8ff;
+  --border: #d8dfed;
+  --accent: #f0c619;
+  --accent-strong: #d8b110;
+  --ring: #f0c61966;
+  --muted: #4f5d78;
+  --muted-soft: #70819c;
+  --cta-text: #1a2334;
+}
+
+:root.dark,
+:root[data-theme="dark"],
+body.dark,
+body[data-theme="dark"] {
+  --background: #131a2a;
+  --foreground: #eef2fb;
+  --surface: #1d2738;
+  --surface-soft: #243042;
+  --border: #2f3d52;
+  --accent: #f4cc1f;
+  --accent-strong: #deba13;
+  --ring: #f4cc1f66;
+  --muted: #b7c2d8;
+  --muted-soft: #95a3bc;
+  --cta-text: #1a2334;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-cta-text: var(--cta-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  min-height: 100vh;
+  background: var(--background);
+  background-image:
+    radial-gradient(
+      circle at 12% -5%,
+      color-mix(in srgb, #4f6bff 28%, transparent) 0,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% -8%,
+      color-mix(in srgb, #16b9ff 20%, transparent) 0,
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      color-mix(in srgb, #111827 20%, transparent) 0,
+      transparent 38%
+    );
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+a {
+  transition: color 0.15s ease;
+}
+
+button {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.bg-surface {
+  box-shadow: 0 14px 30px color-mix(in srgb, #05070f 22%, transparent);
+}
+
+.bg-accent {
+  color: var(--cta-text);
+}
+
+.bg-accent.text-white {
+  color: var(--cta-text) !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  outline: none;
+  box-shadow: none;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+:root.dark .text-slate-600,
+:root[data-theme="dark"] .text-slate-600,
+body.dark .text-slate-600,
+body[data-theme="dark"] .text-slate-600 {
+  color: var(--muted);
+}
+
+:root.dark .text-slate-500,
+:root[data-theme="dark"] .text-slate-500,
+body.dark .text-slate-500,
+body[data-theme="dark"] .text-slate-500 {
+  color: var(--muted-soft);
+}
+
+.horizontal-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
 }

@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  SACCO_ADMIN
+  TREASURER
+  LOAN_OFFICER
+  AUDITOR
+  MEMBER
+}
+
+enum SavingsTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  ADJUSTMENT
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  DISBURSED
+  ACTIVE
+  CLEARED
+  DEFAULTED
+}
+
+model Sacco {
+  id          String              @id @default(cuid())
+  name        String
+  code        String              @unique
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  settings    AppSetting?
+  members     Member[]
+  appUsers    AppUser[]
+  savingsTxns SavingsTransaction[]
+  loans       Loan[]
+  repayments  LoanRepayment[]
+  ledger      LedgerEntry[]
+  auditLogs   AuditLog[]
+}
+
+model AppUser {
+  id         String     @id @default(cuid())
+  saccoId    String
+  authUserId String     @unique
+  email      String
+  fullName   String?
+  role       Role       @default(SACCO_ADMIN)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  sacco      Sacco      @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  auditLogs  AuditLog[]
+
+  @@index([saccoId])
+  @@index([email])
+}
+
+model Member {
+  id              String               @id @default(cuid())
+  saccoId         String
+  memberNumber    String
+  fullName        String
+  phone           String?
+  email           String?
+  status          String               @default("ACTIVE")
+  joinedAt        DateTime             @default(now())
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  sacco           Sacco                @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  savingsTxns     SavingsTransaction[]
+  loans           Loan[]
+  loanRepayments  LoanRepayment[]
+  ledgerEntries   LedgerEntry[]
+
+  @@unique([saccoId, memberNumber])
+  @@index([saccoId])
+}
+
+model SavingsTransaction {
+  id         String                 @id @default(cuid())
+  saccoId    String
+  memberId   String
+  type       SavingsTransactionType
+  amount     Decimal
+  note       String?
+  createdAt  DateTime               @default(now())
+  member     Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sacco      Sacco                  @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, memberId, createdAt])
+}
+
+model Loan {
+  id                   String          @id @default(cuid())
+  saccoId              String
+  memberId             String
+  termMonths           Int             @default(1)
+  dueAt                DateTime?
+  principalAmount      Decimal
+  interestAmount       Decimal         @default(0)
+  outstandingPrincipal Decimal
+  outstandingInterest  Decimal         @default(0)
+  outstandingPenalty   Decimal         @default(0)
+  status               LoanStatus      @default(PENDING)
+  appliedAt            DateTime        @default(now())
+  approvedAt           DateTime?
+  disbursedAt          DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  member               Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sacco                Sacco           @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  repayments           LoanRepayment[]
+
+  @@index([saccoId, memberId, status])
+}
+
+model LoanRepayment {
+  id         String    @id @default(cuid())
+  saccoId    String
+  loanId     String
+  memberId   String
+  amount     Decimal
+  paidAt     DateTime  @default(now())
+  note       String?
+  loan       Loan      @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  member     Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sacco      Sacco     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, loanId, paidAt])
+}
+
+model LedgerEntry {
+  id         String    @id @default(cuid())
+  saccoId    String
+  memberId   String?
+  eventType  String
+  amount     Decimal
+  reference  String?
+  createdAt  DateTime  @default(now())
+  member     Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  sacco      Sacco     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, eventType, createdAt])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  saccoId    String
+  actorId    String?
+  action     String
+  entity     String
+  entityId   String
+  beforeJson String?
+  afterJson  String?
+  createdAt  DateTime  @default(now())
+  actor      AppUser?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  sacco      Sacco     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, createdAt])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  saccoId   String   @unique
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sacco     Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}

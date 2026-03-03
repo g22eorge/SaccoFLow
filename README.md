@@ -1,4 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SACCOFlow
+
+Phase 1 scaffold for SACCO digitization using Next.js + Bun + Prisma + SQLite + Better Auth.
+
+## Phase 1 Scope
+
+- Next.js App Router structure with public and protected dashboard routes
+- Prisma + SQLite data model for SACCO core entities
+- Better Auth wired with Prisma adapter
+- RBAC helpers for protected pages and write operations
+- API/service/validator boundaries scaffolded for Phase 2 feature work
+
+## Stack
+
+- Runtime/package manager: Bun
+- Framework: Next.js (App Router)
+- ORM: Prisma
+- Database: SQLite
+- Auth: Better Auth (Prisma adapter)
+
+## Project Structure
+
+```text
+app/
+  (public)/
+  (dashboard)/
+  api/
+src/
+  server/
+    auth/
+    db/
+    services/
+    validators/
+  ui/
+prisma/
+scripts/
+```
+
+## Setup
+
+1. Install dependencies
+
+```bash
+bun install
+```
+
+2. Copy environment file
+
+```bash
+cp .env.example .env
+```
+
+3. Generate Better Auth Prisma schema additions
+
+```bash
+bun run auth:generate
+```
+
+4. Run migrations
+
+```bash
+bun run db:migrate
+```
+
+5. Start development server
+
+```bash
+bun run dev
+```
+
+## Useful Commands
+
+```bash
+bun run lint
+bun run test
+bun run db:generate
+bun run db:deploy
+bun run db:baseline
+bun run db:reset
+bun run db:studio
+bun run admin:create-super -- --email superadmin@example.com --password "StrongPassword123!"
+bun run phase1:check
+```
+
+## Notes
+
+- The Prisma schema includes SACCO and Better Auth models, with a committed baseline migration in `prisma/migrations`.
+- RBAC is enforced in `src/server/auth/rbac.ts` and used by API write routes.
+- Password-reset links are logged to the server console in development via `emailAndPassword.sendResetPassword`.
+- If your local DB was created before migrations, run `bun run db:baseline` once to mark the baseline migration as applied.
 
 ## Getting Started
 
