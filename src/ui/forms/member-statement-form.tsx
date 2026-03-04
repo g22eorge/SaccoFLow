@@ -7,6 +7,7 @@ type MemberOption = {
   id: string;
   fullName: string;
   memberNumber: string;
+  shareBalance: string;
 };
 
 type StatementEvent = {
@@ -108,7 +109,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
         >
           {members.map((member) => (
             <option key={member.id} value={member.id}>
-              {member.memberNumber} - {member.fullName}
+              {member.memberNumber} - {member.fullName} (Shares: {formatMoney(member.shareBalance)})
             </option>
           ))}
         </select>

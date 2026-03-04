@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { Fragment } from "react";
 import { useRouter } from "next/navigation";
 import {
   AppSettings,
@@ -13,37 +14,47 @@ type SettingsFormProps = {
   canEdit: boolean;
 };
 
-type ThemePreference = "light" | "dark" | "system";
-type EffectiveTheme = "light" | "dark";
+const sectionGroups = {
+  lending: [
+    "loanProduct",
+    "interest",
+    "repaymentAllocation",
+    "delinquency",
+    "overdueScope",
+    "earlyRepayment",
+    "approvalWorkflow",
+  ],
+  capital: ["savings", "incomeCharges"],
+  governance: ["saccoProfile", "notifications"],
+} as const;
 
-const THEME_KEY = "saccoflow-theme";
-const THEME_TOKENS: Record<EffectiveTheme, Record<string, string>> = {
-  light: {
-    "--background": "#f2f5fb",
-    "--foreground": "#172033",
-    "--surface": "#ffffff",
-    "--surface-soft": "#f5f8ff",
-    "--border": "#d8dfed",
-    "--accent": "#f0c619",
-    "--accent-strong": "#d8b110",
-    "--ring": "#f0c61966",
-    "--muted": "#4f5d78",
-    "--muted-soft": "#70819c",
-    "--cta-text": "#1a2334",
-  },
-  dark: {
-    "--background": "#131a2a",
-    "--foreground": "#eef2fb",
-    "--surface": "#1d2738",
-    "--surface-soft": "#243042",
-    "--border": "#2f3d52",
-    "--accent": "#f4cc1f",
-    "--accent-strong": "#deba13",
-    "--ring": "#f4cc1f66",
-    "--muted": "#b7c2d8",
-    "--muted-soft": "#95a3bc",
-    "--cta-text": "#1a2334",
-  },
+type SectionGroupKey = keyof typeof sectionGroups;
+
+const sectionGroupLabels: Record<SectionGroupKey, string> = {
+  lending: "Lending",
+  capital: "Capital",
+  governance: "Governance",
+};
+
+const pairedIncomeToggleMap: Record<string, string> = {
+  registrationFee: "enableRegistrationFee",
+  lateSavingsPenalty: "enableLateSavingsPenalty",
+  delayedLoanPenalty: "enableDelayedLoanPenalty",
+  exitCharge: "enableExitCharge",
+  loanProcessingFee: "enableLoanProcessingFee",
+  withdrawalCharge: "enableWithdrawalCharge",
+  statementFee: "enableStatementFee",
+  accountMaintenanceFee: "enableAccountMaintenanceFee",
+  loanInterestIncomeAmount: "enableLoanInterestIncome",
+  investmentIncomeAmount: "enableInvestmentIncome",
+};
+
+const numberFieldHints: Record<string, string> = {
+  annualRatePercent: "Typical: 12 - 36%",
+  monthlyRatePercent: "Typical: 1 - 3%",
+  liquidityReserveRatioPercent: "Recommended: 15 - 30%",
+  deployableShareCapitalRatioPercent: "Recommended: 20 - 60%",
+  penaltyCapPercent: "Common cap: 10 - 30%",
 };
 
 const parseNumber = (value: string) => {
@@ -54,55 +65,60 @@ const parseNumber = (value: string) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-const readThemePreference = (): ThemePreference => {
-  try {
-    const stored = window.localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
-      return stored;
-    }
-  } catch {
-    return "system";
-  }
-  return "system";
-};
-
-const applyThemePreference = (preference: ThemePreference) => {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const effectiveTheme =
-    preference === "system" ? (prefersDark ? "dark" : "light") : preference;
-  const root = document.documentElement;
-  const tokens = THEME_TOKENS[effectiveTheme];
-  for (const [token, value] of Object.entries(tokens)) {
-    root.style.setProperty(token, value);
-  }
-  root.classList.toggle("dark", effectiveTheme === "dark");
-  root.setAttribute("data-theme", effectiveTheme);
-  root.style.colorScheme = effectiveTheme;
-};
-
-const setThemePreference = (preference: ThemePreference) => {
-  try {
-    window.localStorage.setItem(THEME_KEY, preference);
-  } catch {
-    // no-op when storage is unavailable
-  }
-  applyThemePreference(preference);
-};
-
 export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
   const router = useRouter();
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
-  const [themePreference, setThemePreferenceState] =
-    useState<ThemePreference>("system");
+  const [activeGroup, setActiveGroup] = useState<SectionGroupKey>("lending");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const preference = readThemePreference();
-    setThemePreferenceState(preference);
-    applyThemePreference(preference);
-  }, []);
+  const streamlinedSections = useMemo(
+    () =>
+      settingsSections.filter((section) =>
+        [
+          "saccoProfile",
+          "loanProduct",
+          "interest",
+          "repaymentAllocation",
+          "delinquency",
+          "overdueScope",
+          "earlyRepayment",
+          "savings",
+          "incomeCharges",
+          "approvalWorkflow",
+          "notifications",
+        ].includes(section.key),
+      ),
+    [],
+  );
+
+  const visibleSections = useMemo(
+    () =>
+      streamlinedSections.filter((section) =>
+        sectionGroups[activeGroup].includes(section.key as never),
+      ),
+    [activeGroup, streamlinedSections],
+  );
+
+  const changedFields = useMemo(() => {
+    const changes: Array<{ key: string; before: unknown; after: unknown }> = [];
+    for (const [sectionKey, sectionValue] of Object.entries(settings)) {
+      const initialSection = initialSettings[sectionKey as keyof AppSettings] as Record<string, unknown>;
+      const currentSection = sectionValue as Record<string, unknown>;
+      for (const [fieldKey, afterValue] of Object.entries(currentSection)) {
+        const beforeValue = initialSection[fieldKey];
+        if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+          changes.push({
+            key: `${sectionKey}.${fieldKey}`,
+            before: beforeValue,
+            after: afterValue,
+          });
+        }
+      }
+    }
+    return changes;
+  }, [initialSettings, settings]);
 
   const updateField = (
     sectionKey: keyof AppSettings,
@@ -161,10 +177,18 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
     sectionKey: keyof AppSettings,
     field: SettingsField,
     currentValue: unknown,
+    sectionData: Record<string, unknown>,
   ) => {
+    const pairedToggleKey =
+      sectionKey === "incomeCharges" ? pairedIncomeToggleMap[field.key] : undefined;
+    const pairedToggleEnabled = pairedToggleKey
+      ? Boolean(sectionData[pairedToggleKey])
+      : true;
+
     if (field.type === "boolean") {
       return (
-        <label className="inline-flex items-center gap-2 text-sm">
+        <label className="flex w-full items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+          <span>{field.label}</span>
           <input
             type="checkbox"
             checked={Boolean(currentValue)}
@@ -173,7 +197,6 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
               updateField(sectionKey, field, event.currentTarget.checked)
             }
           />
-          <span>{field.label}</span>
         </label>
       );
     }
@@ -181,7 +204,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
     if (field.type === "select") {
       return (
         <label className="space-y-1 text-sm">
-          <span className="block text-slate-600">{field.label}</span>
+          <span className="block text-muted-foreground">{field.label}</span>
           <select
             value={String(currentValue)}
             disabled={!canEdit}
@@ -203,76 +226,134 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
     const inputType = field.type === "number" ? "number" : field.type;
     return (
       <label className="space-y-1 text-sm">
-        <span className="block text-slate-600">{field.label}</span>
+        <span className="block text-muted-foreground">{field.label}</span>
         <input
           type={inputType}
           value={String(currentValue)}
-          disabled={!canEdit}
+          disabled={!canEdit || !pairedToggleEnabled}
           onChange={(event) =>
             updateField(sectionKey, field, event.target.value)
           }
           className="w-full rounded-lg border border-border bg-background px-3 py-2"
         />
+        {numberFieldHints[field.key] ? (
+          <p className="text-xs text-muted-foreground">{numberFieldHints[field.key]}</p>
+        ) : null}
+        {!pairedToggleEnabled ? (
+          <p className="text-xs text-muted-foreground">Enable corresponding income stream to edit this value.</p>
+        ) : null}
       </label>
     );
   };
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Appearance</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Choose how this browser displays the app.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {(["light", "dark", "system"] as const).map((option) => {
-            const selected = themePreference === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                onClick={() => {
-                  setThemePreferenceState(option);
-                  setThemePreference(option);
-                }}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                  selected
-                    ? "border-accent bg-accent text-white"
-                    : "border-border bg-background"
-                }`}
-              >
-                {option === "light"
-                  ? "Light"
-                  : option === "dark"
-                    ? "Dark"
-                    : "System"}
-              </button>
-            );
-          })}
+      <section className="rounded-lg border bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Settings Modules</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(Object.keys(sectionGroups) as SectionGroupKey[]).map((groupKey) => (
+            <button
+              key={groupKey}
+              type="button"
+              onClick={() => setActiveGroup(groupKey)}
+              className={`rounded-lg border px-3 py-2 text-sm ${
+                activeGroup === groupKey
+                  ? "border-[#cc5500] bg-orange-50 text-[#cc5500]"
+                  : "border-border bg-background"
+              }`}
+            >
+              {sectionGroupLabels[groupKey]}
+            </button>
+          ))}
         </div>
       </section>
 
-      {settingsSections.map((section) => {
+      {visibleSections.map((section) => {
         const sectionData = settings[section.key] as Record<string, unknown>;
+        const fieldsGridClass =
+          section.key === "incomeCharges"
+            ? "mt-4 grid gap-3 sm:grid-cols-2"
+            : "mt-4 grid gap-3 md:grid-cols-2";
+        const fieldMap = new Map(section.fields.map((field) => [field.key, field]));
+        const incomeChargeRows: Array<[string, string | null]> = [
+          ["shareUnitPrice", null],
+          ["enableRegistrationFee", "registrationFee"],
+          ["enableLateSavingsPenalty", "lateSavingsPenalty"],
+          ["enableDelayedLoanPenalty", "delayedLoanPenalty"],
+          ["enableExitCharge", "exitCharge"],
+          ["enableLoanProcessingFee", "loanProcessingFee"],
+          ["enableWithdrawalCharge", "withdrawalCharge"],
+          ["enableStatementFee", "statementFee"],
+          ["enableAccountMaintenanceFee", "accountMaintenanceFee"],
+          ["enableLoanInterestIncome", "loanInterestIncomeAmount"],
+          ["enableInvestmentIncome", "investmentIncomeAmount"],
+        ];
         return (
           <section
             key={section.key}
             className="rounded-lg border bg-card p-6"
           >
-            <h2 className="text-lg font-semibold">{section.title}</h2>
-            <p className="mt-1 text-sm text-slate-600">{section.description}</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {section.fields.map((field) => (
-                <div key={`${section.key}.${field.key}`}>
-                  {renderInput(section.key, field, sectionData[field.key])}
-                </div>
-              ))}
-            </div>
+            <h2 className="text-lg font-semibold">
+              {section.title.replace(/^\d+\.\s*/, "")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
+            {section.key === "incomeCharges" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {incomeChargeRows.map(([leftKey, rightKey]) => {
+                  const leftField = fieldMap.get(leftKey);
+                  const rightField = rightKey ? fieldMap.get(rightKey) : undefined;
+
+                  if (!leftField) {
+                    return null;
+                  }
+
+                  return (
+                    <Fragment key={`${section.key}.${leftKey}.row`}>
+                      <div
+                        className="h-full rounded-lg border bg-background p-3"
+                      >
+                        {renderInput(section.key, leftField, sectionData[leftKey], sectionData)}
+                      </div>
+                      <div
+                        className="h-full rounded-lg border bg-background p-3"
+                      >
+                        {rightField
+                          ? renderInput(section.key, rightField, sectionData[rightKey!], sectionData)
+                          : null}
+                      </div>
+                    </Fragment>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={fieldsGridClass}>
+                {section.fields.map((field) => (
+                  <div key={`${section.key}.${field.key}`}>
+                    {renderInput(section.key, field, sectionData[field.key], sectionData)}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         );
       })}
 
       <div className="rounded-lg border bg-card p-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Change Preview</p>
+        {changedFields.length > 0 ? (
+          <ul className="mb-3 space-y-1 text-sm text-muted-foreground">
+            {changedFields.slice(0, 8).map((item) => (
+              <li key={item.key}>
+                {item.key}: <span className="text-foreground">{String(item.before)}</span>{" -> "}<span className="text-foreground">{String(item.after)}</span>
+              </li>
+            ))}
+            {changedFields.length > 8 ? (
+              <li>...and {changedFields.length - 8} more changes</li>
+            ) : null}
+          </ul>
+        ) : (
+          <p className="mb-3 text-sm text-muted-foreground">No unsaved changes yet.</p>
+        )}
         <button
           type="submit"
           disabled={!canEdit || loading}
@@ -281,7 +362,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
           {loading ? "Saving..." : "Save All Settings"}
         </button>
         {!canEdit ? (
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             You have read-only access to settings.
           </p>
         ) : null}

@@ -8,11 +8,10 @@ type MemberOption = {
   id: string;
   fullName: string;
   memberNumber: string;
-  balance: string;
   shareBalance: string;
 };
 
-export function SavingsTransactionForm({
+export function ShareTransactionForm({
   members,
 }: {
   members: MemberOption[];
@@ -21,7 +20,7 @@ export function SavingsTransactionForm({
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [type, setType] = useState<"DEPOSIT" | "WITHDRAWAL">("DEPOSIT");
+  const [type, setType] = useState<"PURCHASE" | "REDEMPTION" | "ADJUSTMENT">("PURCHASE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -38,25 +37,22 @@ export function SavingsTransactionForm({
     setMessage(null);
 
     try {
-      const route =
-        type === "DEPOSIT" ? "/api/savings/deposit" : "/api/savings/withdraw";
-      const response = await fetch(route, {
+      const response = await fetch("/api/shares", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           memberId,
           amount: Number(amount),
+          type,
           note: note || undefined,
         }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
-        throw new Error(
-          payload.error?.message ?? "Failed to record transaction",
-        );
+        throw new Error(payload.error?.message ?? "Failed to record share transaction");
       }
 
-      setMessage(`${type === "DEPOSIT" ? "Deposit" : "Withdrawal"} saved.`);
+      setMessage(`${type} recorded.`);
       setAmount("");
       setNote("");
       router.refresh();
@@ -74,9 +70,9 @@ export function SavingsTransactionForm({
       onSubmit={submit}
       className="space-y-4 rounded-lg border bg-card p-6"
     >
-      <h2 className="text-lg font-semibold">Record Savings Transaction</h2>
-      <p className="text-sm text-slate-600">
-        Post deposits or withdrawals with real-time member balance context.
+      <h2 className="text-lg font-semibold">Record Share Transaction</h2>
+      <p className="text-sm text-muted-foreground">
+        Capture share purchases, redemptions, and adjustments as SACCO capital movements.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <select
@@ -93,12 +89,13 @@ export function SavingsTransactionForm({
         <select
           value={type}
           onChange={(event) =>
-            setType(event.target.value as "DEPOSIT" | "WITHDRAWAL")
+            setType(event.target.value as "PURCHASE" | "REDEMPTION" | "ADJUSTMENT")
           }
           className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
-          <option value="DEPOSIT">Deposit</option>
-          <option value="WITHDRAWAL">Withdrawal</option>
+          <option value="PURCHASE">Purchase</option>
+          <option value="REDEMPTION">Redemption</option>
+          <option value="ADJUSTMENT">Adjustment</option>
         </select>
         <input
           required
@@ -117,15 +114,9 @@ export function SavingsTransactionForm({
           placeholder="Note (optional)"
         />
       </div>
-      <p className="text-sm text-slate-600">
-        Current balance:{" "}
-        <span className="font-semibold">
-          {selectedMember ? formatMoney(selectedMember.balance) : "-"}
-        </span>
-      </p>
-      <p className="text-sm text-slate-600">
-        Current shares:{" "}
-        <span className="font-semibold">
+      <p className="text-sm text-muted-foreground">
+        Current share balance: {" "}
+        <span className="font-semibold text-foreground">
           {selectedMember ? formatMoney(selectedMember.shareBalance) : "-"}
         </span>
       </p>

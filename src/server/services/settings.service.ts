@@ -10,12 +10,41 @@ import {
 const cloneDefaults = (): AppSettings =>
   settingsSchema.parse(structuredClone(defaultSettings));
 
+const mergeWithDefaults = (value: unknown): AppSettings => {
+  const defaults = cloneDefaults();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return defaults;
+  }
+
+  const source = value as Record<string, unknown>;
+  const next = structuredClone(defaults) as Record<string, unknown>;
+
+  for (const [sectionKey, sectionDefaults] of Object.entries(defaults)) {
+    const sectionValue = source[sectionKey];
+    if (
+      sectionValue &&
+      typeof sectionValue === "object" &&
+      !Array.isArray(sectionValue) &&
+      sectionDefaults &&
+      typeof sectionDefaults === "object" &&
+      !Array.isArray(sectionDefaults)
+    ) {
+      next[sectionKey] = {
+        ...(sectionDefaults as Record<string, unknown>),
+        ...(sectionValue as Record<string, unknown>),
+      };
+    }
+  }
+
+  return settingsSchema.parse(next);
+};
+
 const parseStoredSettings = (value: unknown): AppSettings => {
   const parsed = settingsSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;
   }
-  return cloneDefaults();
+  return mergeWithDefaults(value);
 };
 
 const getAppSettingDelegate = () =>

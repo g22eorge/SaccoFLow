@@ -19,6 +19,7 @@ interface DashboardData {
     pendingApprovals: number
     outstandingPrincipal: string
     savingsBalance: string
+    totalShareCapital: string
   }
   monitors: {
     portfolioRiskPercent: number
@@ -39,7 +40,7 @@ export function SectionCards({ dashboard }: SectionCardsProps) {
   const netSavingsPositive = Number(dashboard.monitors.monthlySavingsNet) >= 0
 
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-5">
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Total Members</CardDescription>
@@ -100,6 +101,25 @@ export function SectionCards({ dashboard }: SectionCardsProps) {
             Outstanding principal
           </div>
           <div className="text-muted-foreground">{dashboard.kpis.loansCleared} cleared</div>
+        </CardFooter>
+      </Card>
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Share Capital</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {dashboard.kpis.totalShareCapital}
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="border-orange-200 text-orange-700 dark:border-orange-800 dark:text-orange-400">
+              Member equity
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Total subscribed shares
+          </div>
+          <div className="text-muted-foreground">Capital base from member shares</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">

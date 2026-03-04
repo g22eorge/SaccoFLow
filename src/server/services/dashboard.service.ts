@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/server/db/prisma";
 import { formatMoney } from "@/src/lib/money";
 import { LoanLifecycleService } from "@/src/server/services/loan-lifecycle.service";
+import { SharesService } from "@/src/server/services/shares.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 const toDecimal = (value: Prisma.Decimal | null | undefined) =>
   value ?? new Prisma.Decimal(0);
@@ -19,6 +21,7 @@ export const DashboardService = {
     monthAgo.setDate(monthAgo.getDate() - 30);
 
     const [
+      settings,
       memberTotal,
       memberActive,
       loanStatusBuckets,
@@ -35,7 +38,10 @@ export const DashboardService = {
       recentAudits,
       recentSavings,
       recentRepayments,
+      totalShareCapital,
+      pendingDisbursementAgg,
     ] = await Promise.all([
+      SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
       prisma.member.count({ where: { saccoId, status: "ACTIVE" } }),
       prisma.loan.groupBy({
@@ -120,6 +126,11 @@ export const DashboardService = {
         orderBy: { paidAt: "desc" },
         take: 3,
       }),
+      SharesService.getTotalShareCapital(saccoId),
+      prisma.loan.aggregate({
+        where: { saccoId, status: "APPROVED" },
+        _sum: { principalAmount: true },
+      }),
     ]);
 
     const statusMap = new Map(
@@ -142,6 +153,21 @@ export const DashboardService = {
     const monthlyLoanNet = toDecimal(repayment30._sum.amount).minus(
       toDecimal(disbursement30._sum.principalAmount),
     );
+
+    const liquidityReserveAmount = totalSavingsBalance
+      .mul(settings.savings.liquidityReserveRatioPercent)
+      .div(100);
+    const pendingDisbursementAmount = toDecimal(
+      pendingDisbursementAgg._sum.principalAmount,
+    );
+    const liquidityLendableFunds = Prisma.Decimal.max(
+      new Prisma.Decimal(0),
+      totalSavingsBalance.minus(liquidityReserveAmount).minus(pendingDisbursementAmount),
+    );
+    const deployableShareCapital = toDecimal(totalShareCapital)
+      .mul(settings.savings.deployableShareCapitalRatioPercent)
+      .div(100);
+    const capitalSupportedCapacity = liquidityLendableFunds.plus(deployableShareCapital);
 
     const recentActivity = [
       ...recentSavings.map((entry) => ({
@@ -174,7 +200,11 @@ export const DashboardService = {
         outstandingPrincipal: toCurrencyString(
           outstandingAgg._sum.outstandingPrincipal,
         ),
-        savingsBalance: totalSavingsBalance.toFixed(2),
+        savingsBalance: formatMoney(totalSavingsBalance.toFixed(2)),
+        totalShareCapital: formatMoney(totalShareCapital.toFixed(2)),
+        lendableFunds: formatMoney(liquidityLendableFunds.toFixed(2)),
+        capitalSupportedCapacity: formatMoney(capitalSupportedCapacity.toFixed(2)),
+        totalLendingHeadroom: formatMoney(capitalSupportedCapacity.toFixed(2)),
       },
       monitors: {
         portfolioRiskPercent: Number(riskRatio.toFixed(2)),
@@ -184,6 +214,12 @@ export const DashboardService = {
         monthlyLoanNet: monthlyLoanNet.toFixed(2),
         monthlyDisbursed: toCurrencyString(disbursement30._sum.principalAmount),
         monthlyRepaid: toCurrencyString(repayment30._sum.amount),
+        pendingDisbursements: formatMoney(pendingDisbursementAmount.toFixed(2)),
+        liquidityReserveAmount: formatMoney(liquidityReserveAmount.toFixed(2)),
+        liquidityReserveRatioPercent: settings.savings.liquidityReserveRatioPercent,
+        deployableShareCapital: formatMoney(deployableShareCapital.toFixed(2)),
+        deployableShareCapitalRatioPercent:
+          settings.savings.deployableShareCapitalRatioPercent,
       },
       recentActivity,
     };

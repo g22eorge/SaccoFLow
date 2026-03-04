@@ -12,6 +12,7 @@ type MemberRow = {
   email: string | null;
   status: string;
   savingsBalance?: string;
+  shareBalance?: string;
 };
 
 export function MembersTable({ members }: { members: MemberRow[] }) {
@@ -180,6 +181,12 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
                     {member.savingsBalance
                       ? formatMoney(member.savingsBalance)
                       : "-"}
+                  </span>
+                </p>
+                <p>
+                  Shares:{" "}
+                  <span className="font-semibold text-foreground">
+                    {member.shareBalance ? formatMoney(member.shareBalance) : "-"}
                   </span>
                 </p>
               </div>

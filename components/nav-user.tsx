@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   IconCreditCard,
   IconDotsVertical,
@@ -39,6 +40,36 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="lg"
+            className="data-[state=open]:bg-orange-50 data-[state=open]:text-[#cc5500] dark:data-[state=open]:bg-orange-950 dark:data-[state=open]:text-orange-400"
+          >
+            <Avatar className="h-8 w-8 rounded-lg grayscale">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </span>
+            </div>
+            <IconDotsVertical className="ml-auto size-4" />
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
 
   return (
     <SidebarMenu>

@@ -1,6 +1,7 @@
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { LoansService } from "@/src/server/services/loans.service";
 import { MembersService } from "@/src/server/services/members.service";
+import { SharesService } from "@/src/server/services/shares.service";
 import { LoanManagement } from "@/src/ui/forms/loan-management";
 import { SiteHeader } from "@/components/site-header";
 
@@ -10,6 +11,15 @@ export default async function LoansPage() {
     MembersService.list({ saccoId, page: 1 }),
     LoansService.list({ saccoId }),
   ]);
+  const shareBalances = await Promise.all(
+    members.map(async (member) => ({
+      memberId: member.id,
+      balance: await SharesService.getMemberShareBalance(saccoId, member.id),
+    })),
+  );
+  const shareBalanceMap = new Map(
+    shareBalances.map((entry) => [entry.memberId, entry.balance.toString()]),
+  );
 
   const memberMap = new Map(
     members.map((member) => [
@@ -35,6 +45,7 @@ export default async function LoansPage() {
     id: member.id,
     fullName: member.fullName,
     memberNumber: member.memberNumber,
+    shareBalance: shareBalanceMap.get(member.id) ?? "0",
   }));
 
   return (

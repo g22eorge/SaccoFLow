@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-  IconChartBar,
   IconCurrencyDollar,
   IconDashboard,
   IconHelp,
@@ -55,11 +54,6 @@ const data = {
       icon: IconCurrencyDollar,
     },
     {
-      title: "Reports",
-      url: "/dashboard/reports",
-      icon: IconReport,
-    },
-    {
       title: "Settings",
       url: "/dashboard/settings",
       icon: IconSettings,
@@ -80,13 +74,13 @@ const data = {
   documents: [
     {
       name: "Audit Logs",
-      url: "/dashboard/reports",
+      url: "/dashboard/audit-logs",
       icon: IconReport,
     },
     {
-      name: "Analytics",
+      name: "Reports",
       url: "/dashboard/reports",
-      icon: IconChartBar,
+      icon: IconReport,
     },
   ],
 }
