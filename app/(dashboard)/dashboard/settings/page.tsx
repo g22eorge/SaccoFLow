@@ -25,21 +25,29 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <SiteHeader />
-      <section className="space-y-6">
-      <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-          Configuration
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">Settings</h1>
-        <p className="mt-2 text-slate-600">
-          Configure SACCO-wide operational policies, including interest rates,
-          overdue handling, approvals, compliance, and feature flags.
-        </p>
-      </div>
+      <SiteHeader title="Settings" />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <section className="space-y-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                    Configuration
+                  </p>
+                  <h1 className="mt-2 text-2xl font-bold">Settings</h1>
+                  <p className="mt-2 text-muted-foreground">
+                    Configure SACCO-wide operational policies, including interest rates,
+                    overdue handling, approvals, compliance, and feature flags.
+                  </p>
+                </div>
 
-      <SettingsForm initialSettings={settings} canEdit={canEdit} />
-    </section>
+                <SettingsForm initialSettings={settings} canEdit={canEdit} />
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

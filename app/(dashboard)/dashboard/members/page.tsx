@@ -31,20 +31,28 @@ export default async function MembersPage() {
 
   return (
     <>
-      <SiteHeader />
-      <section className="space-y-6">
-      <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-          Directory
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">Members</h1>
-        <p className="mt-2 text-slate-600">
-          Manage SACCO members and maintain their profiles.
-        </p>
+      <SiteHeader title="Members" />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <section className="space-y-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                    Directory
+                  </p>
+                  <h1 className="mt-2 text-2xl font-bold">Members</h1>
+                  <p className="mt-2 text-muted-foreground">
+                    Manage SACCO members and maintain their profiles.
+                  </p>
+                </div>
+                <CreateMemberForm />
+                <MembersTable members={tableMembers} />
+              </section>
+            </div>
+          </div>
+        </div>
       </div>
-      <CreateMemberForm />
-      <MembersTable members={tableMembers} />
-    </section>
     </>
   );
 }

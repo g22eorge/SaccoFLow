@@ -35,56 +35,64 @@ export default async function SavingsPage() {
 
   return (
     <>
-      <SiteHeader />
-      <section className="space-y-6">
-      <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-          Transactions
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">Savings</h1>
-        <p className="mt-2 text-slate-600">
-          Record deposits and withdrawals with automatic balance checks.
-        </p>
-      </div>
+      <SiteHeader title="Savings" />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <section className="space-y-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                    Transactions
+                  </p>
+                  <h1 className="mt-2 text-2xl font-bold">Savings</h1>
+                  <p className="mt-2 text-muted-foreground">
+                    Record deposits and withdrawals with automatic balance checks.
+                  </p>
+                </div>
 
-      <SavingsTransactionForm members={memberOptions} />
+                <SavingsTransactionForm members={memberOptions} />
 
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {transactions.map((transaction) => (
-            <article
-              key={transaction.id}
-              className="rounded-xl border border-border bg-background p-4"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">
-                  {memberMap.get(transaction.memberId) ?? transaction.memberId}
-                </p>
-                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-semibold">
-                  {transaction.type}
-                </span>
-              </div>
-              <p className="mt-2 text-sm">
-                Amount:{" "}
-                <span className="font-semibold">
-                  {formatMoney(transaction.amount.toString())}
-                </span>
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                Note: {transaction.note ?? "-"}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {new Date(transaction.createdAt).toLocaleString()}
-              </p>
-            </article>
-          ))}
-          {transactions.length === 0 ? (
-            <p className="text-sm text-slate-500">No transactions found.</p>
-          ) : null}
+                <div className="rounded-lg border bg-card p-6">
+                  <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {transactions.map((transaction) => (
+                      <article
+                        key={transaction.id}
+                        className="rounded-lg border bg-background p-4"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-semibold">
+                            {memberMap.get(transaction.memberId) ?? transaction.memberId}
+                          </p>
+                          <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
+                            {transaction.type}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm">
+                          Amount:{" "}
+                          <span className="font-semibold">
+                            {formatMoney(transaction.amount.toString())}
+                          </span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Note: {transaction.note ?? "-"}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {new Date(transaction.createdAt).toLocaleString()}
+                        </p>
+                      </article>
+                    ))}
+                    {transactions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No transactions found.</p>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
     </>
   );
 }

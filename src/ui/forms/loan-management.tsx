@@ -134,7 +134,7 @@ export function LoanManagement({
     <section className="space-y-6">
       <form
         onSubmit={handleApply}
-        className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm"
+        className="space-y-4 rounded-lg border bg-card p-6"
       >
         <h2 className="text-lg font-semibold">Apply Loan</h2>
         <p className="text-sm text-slate-600">
@@ -183,7 +183,7 @@ export function LoanManagement({
         </button>
       </form>
 
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+      <div className="rounded-lg border bg-card p-5">
         <h2 className="mb-4 text-lg font-semibold">Loans</h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {loans.map((loan) => (

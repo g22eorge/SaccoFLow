@@ -39,19 +39,27 @@ export default async function LoansPage() {
 
   return (
     <>
-      <SiteHeader />
-      <section className="space-y-6">
-      <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-          Credit Desk
-        </p>
-        <h1 className="mt-2 text-2xl font-bold">Loans</h1>
-        <p className="mt-2 text-slate-600">
-          Process loan applications from submission to repayment.
-        </p>
+      <SiteHeader title="Loans" />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="px-4 lg:px-6">
+              <section className="space-y-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                    Credit Desk
+                  </p>
+                  <h1 className="mt-2 text-2xl font-bold">Loans</h1>
+                  <p className="mt-2 text-muted-foreground">
+                    Process loan applications from submission to repayment.
+                  </p>
+                </div>
+                <LoanManagement members={memberOptions} loans={loanRows} />
+              </section>
+            </div>
+          </div>
+        </div>
       </div>
-      <LoanManagement members={memberOptions} loans={loanRows} />
-    </section>
     </>
   );
 }
