@@ -95,7 +95,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
   };
 
   return (
-    <section className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+    <section className="space-y-4 rounded-lg border bg-card p-6">
       <h2 className="text-lg font-semibold">Member Statement</h2>
       <p className="text-sm text-slate-600">
         Generate period-based statements and export them to CSV.

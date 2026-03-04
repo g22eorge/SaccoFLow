@@ -75,7 +75,7 @@ export function CreateUserForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm"
+      className="space-y-4 rounded-lg border bg-card p-6"
     >
       <h2 className="text-lg font-semibold">Create User</h2>
       <p className="text-sm text-slate-600">

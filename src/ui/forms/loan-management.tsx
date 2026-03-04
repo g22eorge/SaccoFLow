@@ -193,7 +193,7 @@ export function LoanManagement({
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{loan.memberName}</p>
-                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-semibold">
+                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold">
                   {loan.status}
                 </span>
               </div>

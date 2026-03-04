@@ -71,7 +71,7 @@ export function SavingsTransactionForm({
   return (
     <form
       onSubmit={submit}
-      className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm"
+      className="space-y-4 rounded-lg border bg-card p-6"
     >
       <h2 className="text-lg font-semibold">Record Savings Transaction</h2>
       <p className="text-sm text-slate-600">

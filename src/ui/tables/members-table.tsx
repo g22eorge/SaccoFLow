@@ -99,7 +99,7 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+    <section className="rounded-lg border bg-card p-5">
       <h2 className="mb-4 text-lg font-semibold">Members</h2>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {members.map((member) => {

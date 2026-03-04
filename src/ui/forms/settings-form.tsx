@@ -219,7 +219,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <section className="rounded-lg border bg-card p-6">
         <h2 className="text-lg font-semibold">Appearance</h2>
         <p className="mt-1 text-sm text-slate-600">
           Choose how this browser displays the app.
@@ -257,7 +257,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
         return (
           <section
             key={section.key}
-            className="rounded-2xl border border-border bg-surface p-6 shadow-sm"
+            className="rounded-lg border bg-card p-6"
           >
             <h2 className="text-lg font-semibold">{section.title}</h2>
             <p className="mt-1 text-sm text-slate-600">{section.description}</p>
@@ -272,7 +272,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
         );
       })}
 
-      <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+      <div className="rounded-lg border bg-card p-4">
         <button
           type="submit"
           disabled={!canEdit || loading}

@@ -153,10 +153,6 @@ button:not(:disabled):active {
   transform: translateY(1px);
 }
 
-.bg-surface {
-  box-shadow: 0 14px 30px color-mix(in srgb, #05070f 22%, transparent);
-}
-
 .bg-accent {
   color: var(--cta-text);
 }
