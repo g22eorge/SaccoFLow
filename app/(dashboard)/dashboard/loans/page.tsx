@@ -2,6 +2,7 @@ import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { LoansService } from "@/src/server/services/loans.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { LoanManagement } from "@/src/ui/forms/loan-management";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function LoansPage() {
   const { saccoId } = await requireSaccoContext();
@@ -37,7 +38,9 @@ export default async function LoansPage() {
   }));
 
   return (
-    <section className="space-y-6">
+    <>
+      <SiteHeader />
+      <section className="space-y-6">
       <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">
           Credit Desk
@@ -49,5 +52,6 @@ export default async function LoansPage() {
       </div>
       <LoanManagement members={memberOptions} loans={loanRows} />
     </section>
+    </>
   );
 }

@@ -41,27 +41,27 @@ const data = {
     },
     {
       title: "Members",
-      url: "/members",
+      url: "/dashboard/members",
       icon: IconUsers,
     },
     {
       title: "Savings",
-      url: "/savings",
+      url: "/dashboard/savings",
       icon: IconCash,
     },
     {
       title: "Loans",
-      url: "/loans",
+      url: "/dashboard/loans",
       icon: IconCurrencyDollar,
     },
     {
       title: "Reports",
-      url: "/reports",
+      url: "/dashboard/reports",
       icon: IconReport,
     },
     {
       title: "Settings",
-      url: "/settings",
+      url: "/dashboard/settings",
       icon: IconSettings,
     },
   ],
@@ -80,12 +80,12 @@ const data = {
   documents: [
     {
       name: "Audit Logs",
-      url: "/reports",
+      url: "/dashboard/reports",
       icon: IconReport,
     },
     {
       name: "Analytics",
-      url: "/reports",
+      url: "/dashboard/reports",
       icon: IconChartBar,
     },
   ],

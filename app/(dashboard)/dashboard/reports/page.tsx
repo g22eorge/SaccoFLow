@@ -4,6 +4,7 @@ import { ReportsService } from "@/src/server/services/reports.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { MemberStatementForm } from "@/src/ui/forms/member-statement-form";
 import { formatMoney } from "@/src/lib/money";
+import { SiteHeader } from "@/components/site-header";
 
 const periodLabels: Record<string, string> = {
   daily: "Today",
@@ -40,7 +41,9 @@ export default async function ReportsPage() {
   }));
 
   return (
-    <section className="space-y-6">
+    <>
+      <SiteHeader />
+      <section className="space-y-6">
       <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">
           Insights
@@ -161,6 +164,7 @@ export default async function ReportsPage() {
           ) : null}
         </div>
       </section>
-    </section>
+      </section>
+    </>
   );
 }

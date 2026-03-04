@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { SettingsForm } from "@/src/ui/forms/settings-form";
+import { SiteHeader } from "@/components/site-header";
 
 const VIEW_ROLES = [
   "SACCO_ADMIN",
@@ -23,7 +24,9 @@ export default async function SettingsPage() {
   const canEdit = EDIT_ROLES.includes(role);
 
   return (
-    <section className="space-y-6">
+    <>
+      <SiteHeader />
+      <section className="space-y-6">
       <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">
           Configuration
@@ -37,5 +40,6 @@ export default async function SettingsPage() {
 
       <SettingsForm initialSettings={settings} canEdit={canEdit} />
     </section>
+    </>
   );
 }

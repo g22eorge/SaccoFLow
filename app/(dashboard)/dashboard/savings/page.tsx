@@ -3,6 +3,7 @@ import { MembersService } from "@/src/server/services/members.service";
 import { SavingsService } from "@/src/server/services/savings.service";
 import { SavingsTransactionForm } from "@/src/ui/forms/savings-transaction-form";
 import { formatMoney } from "@/src/lib/money";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function SavingsPage() {
   const { saccoId } = await requireSaccoContext();
@@ -33,7 +34,9 @@ export default async function SavingsPage() {
   }));
 
   return (
-    <section className="space-y-6">
+    <>
+      <SiteHeader />
+      <section className="space-y-6">
       <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">
           Transactions
@@ -82,5 +85,6 @@ export default async function SavingsPage() {
         </div>
       </div>
     </section>
+    </>
   );
 }

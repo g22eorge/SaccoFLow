@@ -3,6 +3,7 @@ import { MembersService } from "@/src/server/services/members.service";
 import { SavingsService } from "@/src/server/services/savings.service";
 import { CreateMemberForm } from "@/src/ui/forms/create-member-form";
 import { MembersTable } from "@/src/ui/tables/members-table";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function MembersPage() {
   const { saccoId } = await requireSaccoContext();
@@ -29,7 +30,9 @@ export default async function MembersPage() {
   }));
 
   return (
-    <section className="space-y-6">
+    <>
+      <SiteHeader />
+      <section className="space-y-6">
       <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">
           Directory
@@ -42,5 +45,6 @@ export default async function MembersPage() {
       <CreateMemberForm />
       <MembersTable members={tableMembers} />
     </section>
+    </>
   );
 }
