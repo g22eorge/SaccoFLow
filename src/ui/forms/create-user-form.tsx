@@ -13,7 +13,12 @@ const roleOptions = [
 
 type Role = (typeof roleOptions)[number];
 
-export function CreateUserForm() {
+type CreateUserFormProps = {
+  inDialog?: boolean;
+  onSuccess?: () => void;
+};
+
+export function CreateUserForm({ inDialog = false, onSuccess }: CreateUserFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -61,6 +66,7 @@ export function CreateUserForm() {
       setRole("MEMBER");
       setPassword("");
       router.refresh();
+      onSuccess?.();
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -75,12 +81,20 @@ export function CreateUserForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="space-y-4 rounded-lg border bg-card p-6"
+      className={
+        inDialog
+          ? "mt-4 space-y-4"
+          : "space-y-4 rounded-lg border bg-card p-6"
+      }
     >
-      <h2 className="text-lg font-semibold">Create User</h2>
-      <p className="text-sm text-slate-600">
-        Provision user access and assign a role for SACCO operations.
-      </p>
+      {inDialog ? null : (
+        <>
+          <h2 className="text-lg font-semibold">Create User</h2>
+          <p className="text-sm text-slate-600">
+            Provision user access and assign a role for SACCO operations.
+          </p>
+        </>
+      )}
       <div>
         <label htmlFor="email" className="mb-1 block text-sm font-medium">
           Email
