@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
   IconCreditCard,
   IconDotsVertical,
@@ -8,6 +9,7 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
+import { authClient } from "@/src/server/auth/auth-client"
 
 import {
   Avatar,
@@ -41,10 +43,22 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const [mounted, setMounted] = React.useState(false)
+  const [signingOut, setSigningOut] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleLogout = async () => {
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      await authClient.signOut()
+      window.location.href = "/sign-in"
+    } finally {
+      setSigningOut(false)
+    }
+  }
 
   if (!mounted) {
     return (
@@ -115,23 +129,35 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/account">
+                  <IconUserCircle />
+                  Account
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/billing">
+                  <IconCreditCard />
+                  Billing
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/notifications">
+                  <IconNotification />
+                  Notifications
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault()
+                void handleLogout()
+              }}
+              disabled={signingOut}
+            >
               <IconLogout />
-              Log out
+              {signingOut ? "Logging out..." : "Log out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

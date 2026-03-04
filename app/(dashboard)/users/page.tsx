@@ -2,14 +2,28 @@ import { redirect } from "next/navigation";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { UsersService } from "@/src/server/services/users.service";
 import { SiteHeader } from "@/components/site-header";
-import { CreateUserDialog } from "@/src/ui/components/create-user-dialog";
 import { UsersTable } from "@/src/ui/tables/users-table";
+import { CreateUserDialogClient } from "@/src/ui/components/create-user-dialog-client";
+
+type AssignableRole =
+  | "SACCO_ADMIN"
+  | "TREASURER"
+  | "LOAN_OFFICER"
+  | "AUDITOR"
+  | "MEMBER";
 
 export default async function UsersPage() {
   const { saccoId, role } = await requireSaccoContext();
   if (!["SACCO_ADMIN", "SUPER_ADMIN"].includes(role)) {
     redirect("/dashboard");
   }
+
+  const allowedRoles: AssignableRole[] =
+    role === "SUPER_ADMIN"
+      ? ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"]
+      : ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"];
+  const manageableRoles: AssignableRole[] = allowedRoles;
+
   const users = await UsersService.list({ saccoId, page: 1 });
 
   return (
@@ -31,11 +45,15 @@ export default async function UsersPage() {
                         Create and manage SACCO users with role-based access.
                       </p>
                     </div>
-                    <CreateUserDialog />
+                    <CreateUserDialogClient allowedRoles={allowedRoles} />
                   </div>
                 </div>
 
-                <UsersTable users={users} />
+                <UsersTable
+                  users={users}
+                  assignableRoles={allowedRoles}
+                  manageableRoles={manageableRoles}
+                />
               </section>
             </div>
           </div>

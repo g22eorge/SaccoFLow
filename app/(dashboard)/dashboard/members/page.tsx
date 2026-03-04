@@ -1,41 +1,38 @@
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { MembersService } from "@/src/server/services/members.service";
 import { SavingsService } from "@/src/server/services/savings.service";
-import { SharesService } from "@/src/server/services/shares.service";
 import { CreateMemberForm } from "@/src/ui/forms/create-member-form";
-import { ShareTransactionForm } from "@/src/ui/forms/share-transaction-form";
 import { MembersTable } from "@/src/ui/tables/members-table";
 import { formatMoney } from "@/src/lib/money";
 import { SiteHeader } from "@/components/site-header";
+import Link from "next/link";
 import { Prisma } from "@prisma/client";
 
-export default async function MembersPage() {
+const signalTone = (status: "Strong" | "Watch" | "Critical") =>
+  status === "Strong"
+    ? "text-emerald-700 bg-emerald-50"
+    : status === "Watch"
+      ? "text-amber-700 bg-amber-50"
+      : "text-red-700 bg-red-50";
+
+export default async function MembersPage({
+  searchParams,
+}: {
+  searchParams?: { page?: string };
+}) {
   const { saccoId } = await requireSaccoContext();
-  const members = await MembersService.list({ saccoId, page: 1 });
-  const [balances, shareBalances, shareCapitalTotal, shareTransactions] =
-    await Promise.all([
-      Promise.all(
-        members.map(async (member) => ({
-          memberId: member.id,
-          balance: await SavingsService.getMemberBalance(saccoId, member.id),
-        })),
-      ),
-      Promise.all(
-        members.map(async (member) => ({
-          memberId: member.id,
-          balance: await SharesService.getMemberShareBalance(saccoId, member.id),
-        })),
-      ),
-      SharesService.getTotalShareCapital(saccoId),
-      SharesService.list({ saccoId, page: 1 }),
-    ]);
+  const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const members = await MembersService.list({ saccoId, page });
+  const hasNextPage = members.length === 20;
+  const balances = await Promise.all(
+    members.map(async (member) => ({
+      memberId: member.id,
+      balance: await SavingsService.getMemberBalance(saccoId, member.id),
+    })),
+  );
 
   const balanceMap = new Map(
     balances.map((entry) => [entry.memberId, entry.balance.toString()]),
-  );
-
-  const shareBalanceMap = new Map(
-    shareBalances.map((entry) => [entry.memberId, entry.balance.toString()]),
   );
 
   const tableMembers = members.map((member) => ({
@@ -46,20 +43,138 @@ export default async function MembersPage() {
     email: member.email,
     status: member.status,
     savingsBalance: balanceMap.get(member.id) ?? "0",
-    shareBalance: shareBalanceMap.get(member.id) ?? "0",
   }));
 
   const totalSavings = balances.reduce(
     (sum, entry) => sum.plus(entry.balance),
     new Prisma.Decimal(0),
   );
+  const totalMembers = members.length;
+  const activeMembers = members.filter((member) => member.status === "ACTIVE").length;
+  const membersWithSavings = balances.filter((entry) => entry.balance.gt(0)).length;
+  const averageSavings =
+    totalMembers > 0
+      ? Number(totalSavings.toString()) / totalMembers
+      : 0;
+  const activeRate = totalMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
+  const savingsParticipation =
+    totalMembers > 0 ? (membersWithSavings / totalMembers) * 100 : 0;
+  const membersWithContact = members.filter(
+    (member) => Boolean(member.phone) || Boolean(member.email),
+  ).length;
+  const contactCoverage =
+    totalMembers > 0 ? (membersWithContact / totalMembers) * 100 : 0;
+  const inactiveMembers = totalMembers - activeMembers;
 
-  const shareMemberOptions = members.map((member) => ({
-    id: member.id,
-    fullName: member.fullName,
-    memberNumber: member.memberNumber,
-    shareBalance: shareBalanceMap.get(member.id) ?? "0",
-  }));
+  const balancesByMember = members
+    .map((member) => {
+      const balance = Number(balanceMap.get(member.id) ?? "0");
+      return {
+        memberId: member.id,
+        label: `${member.memberNumber} - ${member.fullName}`,
+        balance,
+      };
+    })
+    .sort((a, b) => b.balance - a.balance);
+
+  const topSavers = balancesByMember.slice(0, 5);
+  const topSaverConcentration =
+    Number(totalSavings.toString()) > 0
+      ? (topSavers.reduce((sum, row) => sum + row.balance, 0) /
+          Number(totalSavings.toString())) *
+        100
+      : 0;
+
+  const decisionSignals = [
+    {
+      name: "Active Membership",
+      value: `${activeRate.toFixed(1)}%`,
+      target: ">= 90%",
+      status:
+        activeRate >= 90
+          ? ("Strong" as const)
+          : activeRate >= 75
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "Savings Participation",
+      value: `${savingsParticipation.toFixed(1)}%`,
+      target: ">= 70%",
+      status:
+        savingsParticipation >= 70
+          ? ("Strong" as const)
+          : savingsParticipation >= 55
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "Contact Coverage",
+      value: `${contactCoverage.toFixed(1)}%`,
+      target: ">= 95%",
+      status:
+        contactCoverage >= 95
+          ? ("Strong" as const)
+          : contactCoverage >= 80
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "Top-5 Savings Concentration",
+      value: `${topSaverConcentration.toFixed(1)}%`,
+      target: "<= 60%",
+      status:
+        topSaverConcentration <= 60
+          ? ("Strong" as const)
+          : topSaverConcentration <= 75
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+  ];
+
+  const scenarioCards = [
+    {
+      label: "Base Case",
+      projectedSavings: Number(totalSavings.toString()),
+      impact: 0,
+    },
+    {
+      label: "Participation +10pp",
+      projectedSavings:
+        Number(totalSavings.toString()) +
+        Math.max(0, (totalMembers * 0.1 * averageSavings)),
+      impact: Math.max(0, totalMembers * 0.1 * averageSavings),
+    },
+    {
+      label: "Average Savings +5%",
+      projectedSavings: Number(totalSavings.toString()) * 1.05,
+      impact: Number(totalSavings.toString()) * 0.05,
+    },
+  ];
+
+  const actionQueue = [
+    savingsParticipation < 70
+      ? {
+          title: "Boost savings participation",
+          detail: `${(70 - savingsParticipation).toFixed(1)}pp gap to participation target`,
+          href: "/dashboard/savings",
+        }
+      : null,
+    contactCoverage < 95
+      ? {
+          title: "Complete member contact records",
+          detail: `${totalMembers - membersWithContact} members missing phone/email`,
+          href: "/dashboard/members",
+        }
+      : null,
+    inactiveMembers > 0
+      ? {
+          title: "Review inactive members",
+          detail: `${inactiveMembers} inactive profiles need follow-up`,
+          href: "/dashboard/members",
+        }
+      : null,
+  ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
 
   return (
     <>
@@ -77,29 +192,187 @@ export default async function MembersPage() {
                   <p className="mt-2 text-muted-foreground">
                     Manage SACCO members and maintain their profiles.
                   </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Updated {new Date().toLocaleString()} | Page {page}
+                  </p>
                 </div>
+
                 <section className="rounded-lg border bg-card p-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Savings</p>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Members</p>
+                      <p className="mt-1 text-2xl font-bold">{totalMembers}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Active: {activeMembers} ({activeRate.toFixed(1)}%)
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Savings</p>
                       <p className="mt-1 text-2xl font-bold">
                         {formatMoney(totalSavings.toString())}
                       </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Share Capital</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        {formatMoney(shareCapitalTotal.toString())}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Avg/member: {formatMoney(averageSavings)}
                       </p>
-                    </div>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Savings Participation</p>
+                      <p className="mt-1 text-2xl font-bold">{savingsParticipation.toFixed(1)}%</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Members with savings: {membersWithSavings}</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Contact Coverage</p>
+                      <p className="mt-1 text-2xl font-bold">{contactCoverage.toFixed(1)}%</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Profiles with phone or email</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Inactive Members</p>
+                      <p className="mt-1 text-2xl font-bold">{inactiveMembers}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Require retention or status review</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Top-5 Concentration</p>
+                      <p className="mt-1 text-2xl font-bold">{topSaverConcentration.toFixed(1)}%</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Share of savings held by top 5 savers</p>
+                    </article>
                   </div>
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Recent share transactions: {shareTransactions.length}
-                  </p>
                 </section>
-                <ShareTransactionForm members={shareMemberOptions} />
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Target-vs-actual quality checks for membership health.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {decisionSignals.map((signal) => (
+                        <article
+                          key={signal.name}
+                          className="rounded-md border bg-background px-4 py-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium">{signal.name}</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(signal.status)}`}
+                            >
+                              {signal.status}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-lg font-semibold">{signal.value}</p>
+                          <p className="text-xs text-muted-foreground">Target: {signal.target}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Top Savers</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Largest contributors to the SACCO savings pool.
+                    </p>
+                    <div className="mt-4 space-y-2">
+                      {topSavers.map((holder) => {
+                        const share =
+                          Number(totalSavings.toString()) > 0
+                            ? (holder.balance / Number(totalSavings.toString())) * 100
+                            : 0;
+                        return (
+                          <article
+                            key={holder.memberId}
+                            className="rounded-md border bg-background px-4 py-3"
+                          >
+                            <p className="text-sm font-medium">{holder.label}</p>
+                            <div className="mt-1 flex items-center justify-between text-sm">
+                              <span className="font-semibold">{formatMoney(holder.balance)}</span>
+                              <span className="text-muted-foreground">{share.toFixed(1)}%</span>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Scenario Outlook</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Quick growth scenarios for member-led savings planning.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {scenarioCards.map((scenario) => (
+                        <article
+                          key={scenario.label}
+                          className="rounded-md border bg-background px-4 py-3"
+                        >
+                          <p className="text-sm font-medium">{scenario.label}</p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {formatMoney(scenario.projectedSavings)}
+                          </p>
+                          <p className="mt-1 text-xs text-emerald-700">
+                            Impact: +{formatMoney(scenario.impact)}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Priority Actions</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Recommended interventions from member performance signals.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {actionQueue.length > 0 ? (
+                        actionQueue.map((action) => (
+                          <article
+                            key={action.title}
+                            className="rounded-md border bg-background px-4 py-3"
+                          >
+                            <p className="text-sm font-semibold">{action.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{action.detail}</p>
+                            <Link
+                              href={action.href}
+                              className="mt-2 inline-block text-xs text-[#cc5500]"
+                            >
+                              Open recommendation
+                            </Link>
+                          </article>
+                        ))
+                      ) : (
+                        <article className="rounded-md border bg-background px-4 py-3">
+                          <p className="text-sm font-semibold text-emerald-700">
+                            No immediate intervention flags.
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Membership health is currently within policy targets.
+                          </p>
+                        </article>
+                      )}
+                    </div>
+                  </section>
+                </div>
+
                 <CreateMemberForm />
                 <MembersTable members={tableMembers} />
+
+                <section className="rounded-lg border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href={page > 1 ? `/dashboard/members?page=${page - 1}` : "#"}
+                      className={`text-sm ${page > 1 ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Previous
+                    </Link>
+                    <span className="text-sm text-muted-foreground">Page {page}</span>
+                    <Link
+                      href={hasNextPage ? `/dashboard/members?page=${page + 1}` : "#"}
+                      className={`text-sm ${hasNextPage ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Next
+                    </Link>
+                  </div>
+                </section>
               </section>
             </div>
           </div>

@@ -1,0 +1,24 @@
+import { NextRequest } from "next/server";
+import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
+import { UsersService } from "@/src/server/services/users.service";
+import { ok, withApiHandler } from "@/src/server/api/http";
+
+export const POST = withApiHandler(
+  async (
+    _request: NextRequest,
+    context: { params: Promise<{ id: string }> },
+  ) => {
+    await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN"]);
+    const { id: actorId, saccoId, role } = await requireSaccoContext();
+    const { id } = await context.params;
+
+    const result = await UsersService.revokeSessions({
+      saccoId,
+      targetUserId: id,
+      actorRole: role,
+      actorId,
+    });
+
+    return ok(result);
+  },
+);

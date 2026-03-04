@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const roleOptions = [
@@ -16,17 +16,35 @@ type Role = (typeof roleOptions)[number];
 type CreateUserFormProps = {
   inDialog?: boolean;
   onSuccess?: () => void;
+  allowedRoles?: Role[];
 };
 
-export function CreateUserForm({ inDialog = false, onSuccess }: CreateUserFormProps) {
+export function CreateUserForm({
+  inDialog = false,
+  onSuccess,
+  allowedRoles,
+}: CreateUserFormProps) {
   const router = useRouter();
+  const assignableRoles =
+    allowedRoles && allowedRoles.length > 0
+      ? roleOptions.filter((option) => allowedRoles.includes(option))
+      : roleOptions;
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<Role>("MEMBER");
+  const [role, setRole] = useState<Role>(assignableRoles[0] ?? "MEMBER");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (assignableRoles.length === 0) {
+      return;
+    }
+    if (!assignableRoles.includes(role)) {
+      setRole(assignableRoles[0]);
+    }
+  }, [assignableRoles, role]);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,9 +146,10 @@ export function CreateUserForm({ inDialog = false, onSuccess }: CreateUserFormPr
           id="role"
           value={role}
           onChange={(event) => setRole(event.target.value as Role)}
+          disabled={assignableRoles.length === 0}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
-          {roleOptions.map((option) => (
+          {assignableRoles.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -152,11 +171,16 @@ export function CreateUserForm({ inDialog = false, onSuccess }: CreateUserFormPr
       </div>
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || assignableRoles.length === 0}
         className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-60"
       >
         {submitting ? "Creating..." : "Create User"}
       </button>
+      {assignableRoles.length === 0 ? (
+        <p className="text-sm text-amber-700">
+          Your role does not have permission to assign user roles.
+        </p>
+      ) : null}
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </form>

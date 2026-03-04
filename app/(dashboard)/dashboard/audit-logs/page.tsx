@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { ReportsService } from "@/src/server/services/reports.service";
+import { AuditLogsPanel } from "@/src/ui/components/audit-logs-panel";
+import Link from "next/link";
 
 const VIEW_ROLES = [
   "SACCO_ADMIN",
@@ -11,13 +13,27 @@ const VIEW_ROLES = [
   "LOAN_OFFICER",
 ];
 
-export default async function AuditLogsPage() {
+export default async function AuditLogsPage({
+  searchParams,
+}: {
+  searchParams?: { page?: string };
+}) {
   const { saccoId, role } = await requireSaccoContext();
   if (!VIEW_ROLES.includes(role)) {
     redirect("/dashboard");
   }
 
-  const auditLogs = await ReportsService.auditTrail({ saccoId, page: 1 });
+  const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const auditLogs = await ReportsService.auditTrail({ saccoId, page });
+  const hasNextPage = auditLogs.length === 30;
+  const auditRows = auditLogs.map((entry) => ({
+    id: entry.id,
+    action: entry.action,
+    entity: entry.entity,
+    entityId: entry.entityId,
+    createdAt: entry.createdAt.toISOString(),
+    actorName: entry.actor?.fullName ?? entry.actor?.email ?? "System",
+  }));
 
   return (
     <>
@@ -35,40 +51,28 @@ export default async function AuditLogsPage() {
                   <p className="mt-2 text-muted-foreground">
                     Review recent system actions across members, loans, savings, and settings.
                   </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Updated {new Date().toLocaleString()} | Page {page}
+                  </p>
                 </div>
 
-                <section className="rounded-lg border bg-card p-6">
-                  <h2 className="mb-4 text-lg font-semibold">Recent Activity</h2>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {auditLogs.map((entry) => (
-                      <article
-                        key={entry.id}
-                        className="rounded-lg border bg-background p-4"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
-                            {entry.action}
-                          </span>
-                          <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
-                            {entry.entity}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm">
-                          Actor: {entry.actor?.fullName ?? entry.actor?.email ?? "System"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Entity ID: {entry.entityId}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(entry.createdAt).toLocaleString()}
-                        </p>
-                      </article>
-                    ))}
-                    {auditLogs.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No audit logs recorded yet.
-                      </p>
-                    ) : null}
+                <AuditLogsPanel logs={auditRows} />
+
+                <section className="rounded-lg border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href={page > 1 ? `/dashboard/audit-logs?page=${page - 1}` : "#"}
+                      className={`text-sm ${page > 1 ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Previous
+                    </Link>
+                    <span className="text-sm text-muted-foreground">Page {page}</span>
+                    <Link
+                      href={hasNextPage ? `/dashboard/audit-logs?page=${page + 1}` : "#"}
+                      className={`text-sm ${hasNextPage ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Next
+                    </Link>
                   </div>
                 </section>
               </section>

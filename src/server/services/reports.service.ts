@@ -305,6 +305,9 @@ export const ReportsService = {
     page: number;
     entity?: string;
     actorId?: string;
+    action?: string;
+    from?: Date;
+    to?: Date;
   }) {
     return AuditService.list(input);
   },

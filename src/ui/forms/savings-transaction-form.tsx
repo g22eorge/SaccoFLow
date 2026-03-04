@@ -75,7 +75,7 @@ export function SavingsTransactionForm({
       className="space-y-4 rounded-lg border bg-card p-6"
     >
       <h2 className="text-lg font-semibold">Record Savings Transaction</h2>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         Post deposits or withdrawals with real-time member balance context.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -117,13 +117,13 @@ export function SavingsTransactionForm({
           placeholder="Note (optional)"
         />
       </div>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         Current balance:{" "}
         <span className="font-semibold">
           {selectedMember ? formatMoney(selectedMember.balance) : "-"}
         </span>
       </p>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         Current shares:{" "}
         <span className="font-semibold">
           {selectedMember ? formatMoney(selectedMember.shareBalance) : "-"}

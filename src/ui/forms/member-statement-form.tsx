@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatMoney } from "@/src/lib/money";
+import { formatDateTimeUtc } from "@/src/lib/datetime";
 
 type MemberOption = {
   id: string;
@@ -194,7 +195,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
                       {entry.type}
                     </span>
                     <span className="text-xs text-slate-500">
-                      {new Date(entry.date).toLocaleString()}
+                      {formatDateTimeUtc(entry.date)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm">
@@ -231,7 +232,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
                     className="border-b border-border/70"
                   >
                     <td className="px-2 py-2">
-                      {new Date(entry.date).toLocaleString()}
+                      {formatDateTimeUtc(entry.date)}
                     </td>
                     <td className="px-2 py-2">{entry.type}</td>
                     <td className="px-2 py-2">{formatMoney(entry.amount)}</td>

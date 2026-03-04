@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/src/lib/money";
 
@@ -12,7 +12,6 @@ type MemberRow = {
   email: string | null;
   status: string;
   savingsBalance?: string;
-  shareBalance?: string;
 };
 
 export function MembersTable({ members }: { members: MemberRow[] }) {
@@ -20,6 +19,39 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [sortBy, setSortBy] = useState<"name" | "savings">("name");
+
+  const toNumber = (value?: string) =>
+    value ? Number(value.replace(/[^0-9.-]/g, "")) : 0;
+
+  const visibleMembers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = members.filter((member) => {
+      const matchesStatus =
+        statusFilter === "ALL" ? true : member.status === statusFilter;
+      const haystack = [
+        member.memberNumber,
+        member.fullName,
+        member.phone ?? "",
+        member.email ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesQuery = normalizedQuery
+        ? haystack.includes(normalizedQuery)
+        : true;
+      return matchesStatus && matchesQuery;
+    });
+
+    if (sortBy === "savings") {
+      return [...filtered].sort(
+        (a, b) => toNumber(b.savingsBalance) - toNumber(a.savingsBalance),
+      );
+    }
+    return [...filtered].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [members, query, sortBy, statusFilter]);
 
   const [draft, setDraft] = useState<{
     fullName: string;
@@ -101,9 +133,45 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
 
   return (
     <section className="rounded-lg border bg-card p-5">
-      <h2 className="mb-4 text-lg font-semibold">Members</h2>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Members</h2>
+          <p className="text-sm text-muted-foreground">
+            Search, filter, and edit member profiles.
+          </p>
+        </div>
+        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search member"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as "ALL" | "ACTIVE" | "INACTIVE")
+            }
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="ALL">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(event) =>
+              setSortBy(event.target.value as "name" | "savings")
+            }
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="name">Sort: Name</option>
+            <option value="savings">Sort: Savings</option>
+          </select>
+        </div>
+      </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {members.map((member) => {
+        {visibleMembers.map((member) => {
           const isEditing = editingId === member.id;
           const isBusy = loadingId === member.id;
           return (
@@ -113,7 +181,7 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {member.memberNumber}
                   </p>
                   {isEditing ? (
@@ -136,7 +204,7 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
                 </span>
               </div>
 
-              <div className="mt-3 grid gap-2 text-xs text-slate-600">
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
                 <p>
                   Phone:{" "}
                   {isEditing ? (
@@ -183,17 +251,11 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
                       : "-"}
                   </span>
                 </p>
-                <p>
-                  Shares:{" "}
-                  <span className="font-semibold text-foreground">
-                    {member.shareBalance ? formatMoney(member.shareBalance) : "-"}
-                  </span>
-                </p>
               </div>
 
               {isEditing ? (
                 <div className="mt-3">
-                  <label className="space-y-1 text-xs text-slate-600">
+                  <label className="space-y-1 text-xs text-muted-foreground">
                     <span className="block">Status</span>
                     <select
                       value={draft.status}
@@ -255,6 +317,11 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
           );
         })}
       </div>
+      {visibleMembers.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No members match this filter.
+        </p>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
     </section>
   );

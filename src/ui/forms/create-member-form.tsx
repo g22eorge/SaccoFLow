@@ -57,12 +57,12 @@ export function CreateMemberForm() {
       className="space-y-4 rounded-lg border bg-card p-6"
     >
       <h2 className="text-lg font-semibold">Add Member</h2>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         Register a member profile with optional contact details.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="block text-slate-600">Member number</span>
+          <span className="block text-muted-foreground">Member number</span>
           <input
             required
             value={memberNumber}
@@ -72,7 +72,7 @@ export function CreateMemberForm() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="block text-slate-600">Full name</span>
+          <span className="block text-muted-foreground">Full name</span>
           <input
             required
             value={fullName}
@@ -82,7 +82,7 @@ export function CreateMemberForm() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="block text-slate-600">Phone (optional)</span>
+          <span className="block text-muted-foreground">Phone (optional)</span>
           <input
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
@@ -91,7 +91,7 @@ export function CreateMemberForm() {
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="block text-slate-600">Email (optional)</span>
+          <span className="block text-muted-foreground">Email (optional)</span>
           <input
             type="email"
             value={email}

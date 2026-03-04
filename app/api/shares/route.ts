@@ -7,9 +7,19 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId } = await requireSaccoContext();
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
   const memberId = request.nextUrl.searchParams.get("memberId") ?? undefined;
+  const from = request.nextUrl.searchParams.get("from");
+  const to = request.nextUrl.searchParams.get("to");
+  const fromDate = from ? new Date(`${from}T00:00:00`) : undefined;
+  const toDate = to ? new Date(`${to}T23:59:59`) : undefined;
 
   const [transactions, totalShareCapital] = await Promise.all([
-    SharesService.list({ saccoId, memberId, page }),
+    SharesService.list({
+      saccoId,
+      memberId,
+      page,
+      from: fromDate,
+      to: toDate,
+    }),
     SharesService.getTotalShareCapital(saccoId),
   ]);
 

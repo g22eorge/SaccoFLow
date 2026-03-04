@@ -63,13 +63,18 @@ const uniqueAllocationOrder = (targets: AllocationTarget[]) => {
 };
 
 export const LoansService = {
-  async list(input: { saccoId: string; status?: string }) {
+  async list(input: { saccoId: string; status?: string; page?: number }) {
+    const pageSize = 30;
+    const page = Math.max(input.page ?? 1, 1);
+    const skip = (page - 1) * pageSize;
     return prisma.loan.findMany({
       where: {
         saccoId: input.saccoId,
         ...(input.status ? { status: input.status as LoanStatus } : {}),
       },
       orderBy: { createdAt: "desc" },
+      take: pageSize,
+      skip,
     });
   },
 

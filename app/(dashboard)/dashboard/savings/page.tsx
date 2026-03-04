@@ -3,13 +3,22 @@ import { MembersService } from "@/src/server/services/members.service";
 import { SavingsService } from "@/src/server/services/savings.service";
 import { SharesService } from "@/src/server/services/shares.service";
 import { SavingsTransactionForm } from "@/src/ui/forms/savings-transaction-form";
+import { SavingsTransactionsPanel } from "@/src/ui/components/savings-transactions-panel";
 import { formatMoney } from "@/src/lib/money";
 import { SiteHeader } from "@/components/site-header";
+import { Prisma } from "@prisma/client";
+import Link from "next/link";
 
-export default async function SavingsPage() {
+export default async function SavingsPage({
+  searchParams,
+}: {
+  searchParams?: { page?: string };
+}) {
   const { saccoId } = await requireSaccoContext();
+  const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const members = await MembersService.list({ saccoId, page: 1 });
-  const transactions = await SavingsService.list({ saccoId, page: 1 });
+  const transactions = await SavingsService.list({ saccoId, page });
+  const hasNextPage = transactions.length === 30;
   const [balances, shareBalances] = await Promise.all([
     Promise.all(
       members.map(async (member) => ({
@@ -46,6 +55,45 @@ export default async function SavingsPage() {
     shareBalance: shareBalanceMap.get(member.id) ?? "0",
   }));
 
+  const totalMembers = members.length;
+  const activeMembers = members.filter((member) => member.status === "ACTIVE").length;
+  const totalSavingsPool = balances.reduce(
+    (sum, entry) => sum.plus(entry.balance),
+    new Prisma.Decimal(0),
+  );
+  const membersWithSavings = balances.filter((entry) => entry.balance.gt(0)).length;
+  const savingsParticipation =
+    totalMembers > 0 ? (membersWithSavings / totalMembers) * 100 : 0;
+
+  const depositTransactions = transactions.filter(
+    (transaction) => transaction.type === "DEPOSIT",
+  );
+  const withdrawalTransactions = transactions.filter(
+    (transaction) => transaction.type === "WITHDRAWAL",
+  );
+  const totalDeposits = depositTransactions.reduce(
+    (sum, transaction) => sum + Number(transaction.amount.toString()),
+    0,
+  );
+  const totalWithdrawals = withdrawalTransactions.reduce(
+    (sum, transaction) => sum + Number(transaction.amount.toString()),
+    0,
+  );
+  const netSavingsFlow = totalDeposits - totalWithdrawals;
+  const averageTxn =
+    transactions.length > 0
+      ? (totalDeposits + totalWithdrawals) / transactions.length
+      : 0;
+
+  const transactionRows = transactions.map((transaction) => ({
+    id: transaction.id,
+    memberLabel: memberMap.get(transaction.memberId) ?? transaction.memberId,
+    type: transaction.type,
+    amount: transaction.amount.toString(),
+    note: transaction.note,
+    createdAt: transaction.createdAt.toISOString(),
+  }));
+
   return (
     <>
       <SiteHeader title="Savings" />
@@ -62,45 +110,89 @@ export default async function SavingsPage() {
                   <p className="mt-2 text-muted-foreground">
                     Record deposits and withdrawals with automatic balance checks.
                   </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Updated {new Date().toLocaleString()} | Page {page}
+                  </p>
                 </div>
+
+                <section className="rounded-lg border bg-card p-6">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Members</p>
+                      <p className="mt-1 text-2xl font-bold">{totalMembers}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Active: {activeMembers}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Savings Pool</p>
+                      <p className="mt-1 text-2xl font-bold">
+                        {formatMoney(totalSavingsPool.toString())}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Members with balance: {membersWithSavings}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Savings Participation</p>
+                      <p className="mt-1 text-2xl font-bold">{savingsParticipation.toFixed(1)}%</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Across all registered members</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Deposits</p>
+                      <p className="mt-1 text-2xl font-bold text-emerald-700">
+                        {formatMoney(totalDeposits)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Transactions: {depositTransactions.length}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Withdrawals</p>
+                      <p className="mt-1 text-2xl font-bold text-red-700">
+                        {formatMoney(totalWithdrawals)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Transactions: {withdrawalTransactions.length}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Savings Flow</p>
+                      <p
+                        className={`mt-1 text-2xl font-bold ${
+                          netSavingsFlow >= 0 ? "text-emerald-700" : "text-red-700"
+                        }`}
+                      >
+                        {formatMoney(netSavingsFlow)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Avg transaction: {formatMoney(averageTxn)}
+                      </p>
+                    </article>
+                  </div>
+                </section>
 
                 <SavingsTransactionForm members={memberOptions} />
 
-                <div className="rounded-lg border bg-card p-6">
-                  <h2 className="mb-4 text-lg font-semibold">Recent Transactions</h2>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {transactions.map((transaction) => (
-                      <article
-                        key={transaction.id}
-                        className="rounded-lg border bg-background p-4"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-semibold">
-                            {memberMap.get(transaction.memberId) ?? transaction.memberId}
-                          </p>
-                          <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
-                            {transaction.type}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm">
-                          Amount:{" "}
-                          <span className="font-semibold">
-                            {formatMoney(transaction.amount.toString())}
-                          </span>
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Note: {transaction.note ?? "-"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(transaction.createdAt).toLocaleString()}
-                        </p>
-                      </article>
-                    ))}
-                    {transactions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No transactions found.</p>
-                    ) : null}
+                <SavingsTransactionsPanel transactions={transactionRows} />
+
+                <section className="rounded-lg border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href={page > 1 ? `/dashboard/savings?page=${page - 1}` : "#"}
+                      className={`text-sm ${page > 1 ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Previous
+                    </Link>
+                    <span className="text-sm text-muted-foreground">Page {page}</span>
+                    <Link
+                      href={hasNextPage ? `/dashboard/savings?page=${page + 1}` : "#"}
+                      className={`text-sm ${hasNextPage ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
+                    >
+                      Next
+                    </Link>
                   </div>
-                </div>
+                </section>
               </section>
             </div>
           </div>

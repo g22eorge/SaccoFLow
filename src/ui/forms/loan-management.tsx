@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatMoney } from "@/src/lib/money";
 
 type MemberOption = {
@@ -43,6 +43,7 @@ export function LoanManagement({
   loans: LoanRow[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [principalAmount, setPrincipalAmount] = useState("");
   const [termMonths, setTermMonths] = useState("1");
@@ -51,6 +52,63 @@ export function LoanManagement({
   const [loadingApply, setLoadingApply] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "PENDING" | "APPROVED" | "DISBURSED" | "ACTIVE" | "DEFAULTED" | "CLEARED"
+  >("ALL");
+  const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">("dueSoon");
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (
+      status === "PENDING" ||
+      status === "APPROVED" ||
+      status === "DISBURSED" ||
+      status === "ACTIVE" ||
+      status === "DEFAULTED" ||
+      status === "CLEARED"
+    ) {
+      setStatusFilter(status);
+      return;
+    }
+    setStatusFilter("ALL");
+  }, [searchParams]);
+
+  const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
+
+  const visibleLoans = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = loans.filter((loan) => {
+      const matchesStatus = statusFilter === "ALL" ? true : loan.status === statusFilter;
+      const haystack = `${loan.memberName} ${loan.status}`.toLowerCase();
+      const matchesQuery = normalizedQuery ? haystack.includes(normalizedQuery) : true;
+      return matchesStatus && matchesQuery;
+    });
+
+    if (sortBy === "outstanding") {
+      return [...filtered].sort((a, b) => {
+        const aOutstanding =
+          toNumber(a.outstandingPrincipal) +
+          toNumber(a.outstandingInterest) +
+          toNumber(a.outstandingPenalty);
+        const bOutstanding =
+          toNumber(b.outstandingPrincipal) +
+          toNumber(b.outstandingInterest) +
+          toNumber(b.outstandingPenalty);
+        return bOutstanding - aOutstanding;
+      });
+    }
+
+    if (sortBy === "name") {
+      return [...filtered].sort((a, b) => a.memberName.localeCompare(b.memberName));
+    }
+
+    return [...filtered].sort((a, b) => {
+      const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDue - bDue;
+    });
+  }, [loans, query, sortBy, statusFilter]);
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -131,6 +189,40 @@ export function LoanManagement({
     });
   };
 
+  const exportVisibleLoans = () => {
+    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = [
+      [
+        "member",
+        "status",
+        "principal",
+        "outstandingPrincipal",
+        "outstandingInterest",
+        "outstandingPenalty",
+        "dueAt",
+        "termMonths",
+      ],
+      ...visibleLoans.map((loan) => [
+        loan.memberName,
+        loan.status,
+        loan.principalAmount,
+        loan.outstandingPrincipal,
+        loan.outstandingInterest,
+        loan.outstandingPenalty,
+        loan.dueAt ?? "",
+        String(loan.termMonths),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => escape(cell)).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "loans.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="space-y-6">
       <form
@@ -138,7 +230,7 @@ export function LoanManagement({
         className="space-y-4 rounded-lg border bg-card p-6"
       >
         <h2 className="text-lg font-semibold">Apply Loan</h2>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           Capture a loan request and push it through approval, disbursement, and
           repayment.
         </p>
@@ -185,9 +277,66 @@ export function LoanManagement({
       </form>
 
       <div className="rounded-lg border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold">Loans</h2>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Loans</h2>
+            <p className="text-sm text-muted-foreground">
+              Filter and manage loan actions by status and risk.
+            </p>
+          </div>
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search member"
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as
+                    | "ALL"
+                    | "PENDING"
+                    | "APPROVED"
+                    | "DISBURSED"
+                    | "ACTIVE"
+                    | "DEFAULTED"
+                    | "CLEARED",
+                )
+              }
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="DISBURSED">Disbursed</option>
+              <option value="ACTIVE">Active</option>
+              <option value="DEFAULTED">Defaulted</option>
+              <option value="CLEARED">Cleared</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as "name" | "outstanding" | "dueSoon")
+              }
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="dueSoon">Sort: Due soon</option>
+              <option value="outstanding">Sort: Outstanding</option>
+              <option value="name">Sort: Member name</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={exportVisibleLoans}
+            className="rounded-lg border border-border px-3 py-2 text-sm"
+          >
+            Export CSV
+          </button>
+        </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {loans.map((loan) => (
+          {visibleLoans.map((loan) => (
             <article
               key={loan.id}
               className="rounded-xl border border-border bg-background p-4"
@@ -198,7 +347,7 @@ export function LoanManagement({
                   {loan.status}
                 </span>
               </div>
-              <div className="mt-3 grid gap-1 text-xs text-slate-600">
+              <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
                 <p>
                   Principal:{" "}
                   <span className="font-semibold text-foreground">
@@ -271,8 +420,8 @@ export function LoanManagement({
               </div>
             </article>
           ))}
-          {loans.length === 0 ? (
-            <p className="text-sm text-slate-500">No loans recorded yet.</p>
+          {visibleLoans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No loans match this filter.</p>
           ) : null}
         </div>
       </div>

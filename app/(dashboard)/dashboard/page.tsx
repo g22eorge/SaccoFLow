@@ -4,10 +4,17 @@ import { SiteHeader } from "@/components/site-header";
 import Link from "next/link";
 import { formatMoney } from "@/src/lib/money";
 
-const toNumber = (value: string) => Number(value.replaceAll(",", ""));
+const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
 
 const toneClass = (value: number) =>
   value >= 0 ? "text-emerald-600" : "text-red-600";
+
+const signalTone = (status: "Strong" | "Watch" | "Critical") =>
+  status === "Strong"
+    ? "text-emerald-700 bg-emerald-50"
+    : status === "Watch"
+      ? "text-amber-700 bg-amber-50"
+      : "text-red-700 bg-red-50";
 
 export default async function Page() {
   const { saccoId } = await requireSaccoContext();
@@ -24,6 +31,128 @@ export default async function Page() {
   const monthlySavingsNet = Number(dashboard.monitors.monthlySavingsNet);
   const monthlyLoanNet = Number(dashboard.monitors.monthlyLoanNet);
   const netSurplus30d = monthlySavingsNet + monthlyLoanNet;
+  const disbursed30d = toNumber(dashboard.monitors.monthlyDisbursed);
+  const repaid30d = toNumber(dashboard.monitors.monthlyRepaid);
+  const loanNetFlow30d = repaid30d - disbursed30d;
+  const collectionEfficiency =
+    disbursed30d > 0 ? (repaid30d / disbursed30d) * 100 : 0;
+  const collectionTarget = 100;
+  const collectionGap = collectionEfficiency - collectionTarget;
+  const flowStatus =
+    collectionEfficiency >= 100 && loanNetFlow30d >= 0
+      ? ("Strong" as const)
+      : collectionEfficiency >= 90
+        ? ("Watch" as const)
+        : ("Critical" as const);
+  const flowInsight =
+    flowStatus === "Strong"
+      ? `Collections exceed disbursements by ${formatMoney(loanNetFlow30d)} in the last 30 days.`
+      : flowStatus === "Watch"
+        ? "Collections are close to pace but need tighter weekly follow-up."
+        : "Collections are trailing disbursements; tighten underwriting and recovery immediately.";
+  const lendableFunds = toNumber(dashboard.kpis.lendableFunds);
+  const deployableShareCapital = toNumber(
+    dashboard.monitors.deployableShareCapital,
+  );
+  const capitalCapacity = toNumber(dashboard.kpis.capitalSupportedCapacity);
+  const lendingHeadroom = toNumber(dashboard.kpis.totalLendingHeadroom);
+  const outstandingPrincipal = toNumber(dashboard.kpis.outstandingPrincipal);
+  const portfolioRiskPercent = Number(dashboard.monitors.portfolioRiskPercent);
+  const pendingApprovals = Number(dashboard.kpis.pendingApprovals);
+  const utilizationPercent =
+    capitalCapacity > 0 ? (outstandingPrincipal / capitalCapacity) * 100 : 0;
+
+  const decisionSignals = [
+    {
+      name: "Portfolio at Risk",
+      value: `${portfolioRiskPercent.toFixed(1)}%`,
+      target: "<= 8%",
+      status:
+        portfolioRiskPercent <= 8
+          ? ("Strong" as const)
+          : portfolioRiskPercent <= 12
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "Lending Utilization",
+      value: `${utilizationPercent.toFixed(1)}%`,
+      target: "65% - 85%",
+      status:
+        utilizationPercent >= 65 && utilizationPercent <= 85
+          ? ("Strong" as const)
+          : utilizationPercent <= 95
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "Approvals Backlog",
+      value: `${pendingApprovals}`,
+      target: "<= 15",
+      status:
+        pendingApprovals <= 15
+          ? ("Strong" as const)
+          : pendingApprovals <= 30
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+    {
+      name: "30D Net Surplus",
+      value: formatMoney(netSurplus30d),
+      target: ">= 0",
+      status:
+        netSurplus30d >= 0
+          ? ("Strong" as const)
+          : netSurplus30d >= -0.1 * Math.max(capitalBase, 1)
+            ? ("Watch" as const)
+            : ("Critical" as const),
+    },
+  ];
+
+  const scenarioCards = [
+    {
+      label: "Base Case",
+      effect: 0,
+      headroom: lendingHeadroom,
+    },
+    {
+      label: "Liquidity Stress",
+      effect: -(lendableFunds * 0.15),
+      headroom: Math.max(0, lendingHeadroom - lendableFunds * 0.15),
+    },
+    {
+      label: "Risk + Liquidity Stress",
+      effect: -(lendableFunds * 0.25 + outstandingPrincipal * 0.05),
+      headroom: Math.max(
+        0,
+        lendingHeadroom - (lendableFunds * 0.25 + outstandingPrincipal * 0.05),
+      ),
+    },
+  ];
+
+  const actionQueue = [
+    pendingApprovals > 15
+      ? {
+          title: "Clear loan approvals queue",
+          detail: `${pendingApprovals} approvals pending decision`,
+          href: "/dashboard/loans",
+        }
+      : null,
+    portfolioRiskPercent > 8
+      ? {
+          title: "Run delinquency intervention",
+          detail: `PAR is ${portfolioRiskPercent.toFixed(1)}%, above target`,
+          href: "/dashboard/reports",
+        }
+      : null,
+    netSurplus30d < 0
+      ? {
+          title: "Protect cash in next 30 days",
+          detail: `Net surplus is ${formatMoney(netSurplus30d)} and needs correction`,
+          href: "/dashboard/settings",
+        }
+      : null,
+  ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
 
   return (
     <>
@@ -114,64 +243,180 @@ export default async function Page() {
 
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Operational Pressure</h2>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <article className="rounded-md border bg-background px-4 py-3">
+                    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Approvals Queue</p>
                         <p className="mt-1 text-xl font-semibold">{dashboard.kpis.pendingApprovals}</p>
                         <Link href="/dashboard/loans" className="mt-2 inline-block text-xs text-[#cc5500]">
                           Open loans queue
                         </Link>
                       </article>
-                      <article className="rounded-md border bg-background px-4 py-3">
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Defaulted Loans</p>
                         <p className="mt-1 text-xl font-semibold">{dashboard.monitors.defaultedLoans}</p>
                         <Link href="/dashboard/reports" className="mt-2 inline-block text-xs text-[#cc5500]">
                           Review risk report
                         </Link>
                       </article>
-                      <article className="rounded-md border bg-background px-4 py-3">
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Audit Alerts (24h)</p>
                         <p className="mt-1 text-xl font-semibold">{dashboard.monitors.auditEvents24h}</p>
                         <Link href="/dashboard/audit-logs" className="mt-2 inline-block text-xs text-[#cc5500]">
                           Open audit logs
                         </Link>
                       </article>
-                      <article className="rounded-md border bg-background px-4 py-3">
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Open Loan Portfolio</p>
-                        <p className="mt-1 text-xl font-semibold">{dashboard.kpis.outstandingPrincipal}</p>
+                        <p className="mt-1 text-xl font-semibold">{formatMoney(outstandingPrincipal)}</p>
                         <Link href="/dashboard/loans" className="mt-2 inline-block text-xs text-[#cc5500]">
                           View portfolio
                         </Link>
                       </article>
-                      <article className="rounded-md border bg-background px-4 py-3 sm:col-span-2">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Lending Headroom Breakdown</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Liquidity lendable {dashboard.kpis.lendableFunds} + deployable shares {dashboard.monitors.deployableShareCapital}
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Liquidity Lendable</p>
+                        <p className="mt-1 text-xl font-semibold">{formatMoney(lendableFunds)}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Available after reserve and pending disbursements.
                         </p>
-                        <p className="mt-1 text-lg font-semibold">{dashboard.kpis.totalLendingHeadroom}</p>
+                      </article>
+                      <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Lending Headroom</p>
+                        <p className="mt-1 text-xl font-semibold">{formatMoney(lendingHeadroom)}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Includes deployable shares {formatMoney(deployableShareCapital)}.
+                        </p>
                       </article>
                     </div>
                   </section>
                 </div>
 
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Target-vs-actual scorecards to speed board-level decisions.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {decisionSignals.map((signal) => (
+                        <article
+                          key={signal.name}
+                          className="rounded-md border bg-background px-4 py-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium">{signal.name}</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(signal.status)}`}
+                            >
+                              {signal.status}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-lg font-semibold">{signal.value}</p>
+                          <p className="text-xs text-muted-foreground">Target: {signal.target}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-lg border bg-card p-6">
+                    <h2 className="text-lg font-semibold">Scenario Outlook</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Quick stress checks on lending headroom under adverse assumptions.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {scenarioCards.map((scenario) => (
+                        <article
+                          key={scenario.label}
+                          className="rounded-md border bg-background px-4 py-3"
+                        >
+                          <p className="text-sm font-medium">{scenario.label}</p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {formatMoney(scenario.headroom)}
+                          </p>
+                          <p className={`text-xs ${toneClass(scenario.effect)}`}>
+                            Headroom impact: {formatMoney(scenario.effect)}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+
                 <section className="rounded-lg border bg-card p-6">
-                  <h2 className="text-lg font-semibold">30 Day Flow Snapshot</h2>
-                  <div className="mt-4 grid gap-4 md:grid-cols-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Disbursed</p>
-                      <p className="text-2xl font-bold">{dashboard.monitors.monthlyDisbursed}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Repaid</p>
-                      <p className="text-2xl font-bold">{dashboard.monitors.monthlyRepaid}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Loan Net Flow</p>
-                      <p className={`text-2xl font-bold ${toneClass(Number(dashboard.monitors.monthlyLoanNet))}`}>
-                        {dashboard.monitors.monthlyLoanNet}
-                      </p>
-                    </div>
+                  <h2 className="text-lg font-semibold">Priority Actions</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Suggested next moves based on today&apos;s pressure signals.
+                  </p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    {actionQueue.length > 0 ? (
+                      actionQueue.map((action) => (
+                        <article
+                          key={action.title}
+                          className="rounded-md border bg-background px-4 py-3"
+                        >
+                          <p className="text-sm font-semibold">{action.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{action.detail}</p>
+                          <Link
+                            href={action.href}
+                            className="mt-2 inline-block text-xs text-[#cc5500]"
+                          >
+                            Open recommendation
+                          </Link>
+                        </article>
+                      ))
+                    ) : (
+                      <article className="rounded-md border bg-background px-4 py-3 md:col-span-3">
+                        <p className="text-sm font-semibold text-emerald-700">
+                          No immediate intervention flags.
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Continue normal monitoring cadence and review weekly trend shifts.
+                        </p>
+                      </article>
+                    )}
                   </div>
+                </section>
+
+                <section className="rounded-lg border bg-card p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold">30 Day Flow Intelligence</h2>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(flowStatus)}`}
+                    >
+                      {flowStatus}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Lending cash cycle quality with collection efficiency against target.
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-4">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Disbursed</p>
+                      <p className="mt-1 text-2xl font-bold">{formatMoney(disbursed30d)}</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Repaid</p>
+                      <p className="mt-1 text-2xl font-bold">{formatMoney(repaid30d)}</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Lending Position</p>
+                      <p className={`mt-1 text-2xl font-bold ${toneClass(loanNetFlow30d)}`}>
+                        {formatMoney(loanNetFlow30d)}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Collection Efficiency</p>
+                      <p className={`mt-1 text-2xl font-bold ${toneClass(collectionGap)}`}>
+                        {collectionEfficiency.toFixed(1)}%
+                      </p>
+                      <p className={`mt-1 text-xs ${toneClass(collectionGap)}`}>
+                        vs target {collectionTarget}%: {collectionGap >= 0 ? "+" : ""}
+                        {collectionGap.toFixed(1)}pp
+                      </p>
+                    </article>
+                  </div>
+                  <p className="mt-4 rounded-md border bg-background px-4 py-3 text-sm text-muted-foreground">
+                    {flowInsight}
+                  </p>
                 </section>
               </section>
             </div>

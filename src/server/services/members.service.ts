@@ -27,13 +27,27 @@ export const MembersService = {
     return `M-${String(maxSequence + 1).padStart(4, "0")}`;
   },
 
-  async list(input: { saccoId: string; search?: string; page: number }) {
+  async list(input: {
+    saccoId: string;
+    search?: string;
+    page: number;
+    from?: Date;
+    to?: Date;
+  }) {
     const pageSize = 20;
     const skip = Math.max(input.page - 1, 0) * pageSize;
 
     return prisma.member.findMany({
       where: {
         saccoId: input.saccoId,
+        ...(input.from || input.to
+          ? {
+              createdAt: {
+                ...(input.from ? { gte: input.from } : {}),
+                ...(input.to ? { lte: input.to } : {}),
+              },
+            }
+          : {}),
         ...(input.search
           ? {
               OR: [

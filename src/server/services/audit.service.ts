@@ -15,6 +15,9 @@ type ListAuditInput = {
   page: number;
   entity?: string;
   actorId?: string;
+  action?: string;
+  from?: Date;
+  to?: Date;
 };
 
 const toJson = (value: unknown) => {
@@ -48,6 +51,15 @@ export const AuditService = {
         saccoId: input.saccoId,
         ...(input.entity ? { entity: input.entity } : {}),
         ...(input.actorId ? { actorId: input.actorId } : {}),
+        ...(input.action ? { action: input.action } : {}),
+        ...(input.from || input.to
+          ? {
+              createdAt: {
+                ...(input.from ? { gte: input.from } : {}),
+                ...(input.to ? { lte: input.to } : {}),
+              },
+            }
+          : {}),
       },
       include: {
         actor: {

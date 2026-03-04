@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/server/db/prisma";
-import { createUserSchema } from "@/src/server/validators/users";
+import {
+  createUserSchema,
+  resetUserPasswordSchema,
+  updateUserAccessSchema,
+} from "@/src/server/validators/users";
 import { auth } from "@/src/server/auth/auth";
 import { AuditService } from "@/src/server/services/audit.service";
 import { MembersService } from "@/src/server/services/members.service";
@@ -125,6 +129,238 @@ export const UsersService = {
     }
 
     return result;
+  },
+
+  async resetPassword(
+    payload: {
+      saccoId: string;
+      targetUserId: string;
+      actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+      actorId?: string;
+      password?: string;
+    },
+  ) {
+    const parsed = resetUserPasswordSchema.parse({ password: payload.password });
+    const target = await prisma.appUser.findFirst({
+      where: {
+        id: payload.targetUserId,
+        saccoId: payload.saccoId,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        authUserId: true,
+      },
+    });
+
+    if (!target) {
+      throw new Error("User not found");
+    }
+
+    const assignableRolesByActor = {
+      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      TREASURER: ["MEMBER"],
+      LOAN_OFFICER: ["MEMBER"],
+      AUDITOR: ["MEMBER"],
+      MEMBER: [],
+    } as const;
+
+    const allowedRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
+    if (!allowedRoles.includes(target.role)) {
+      throw new Error("You are not allowed to reset password for this role");
+    }
+
+    const passwordToSet =
+      parsed.password ?? `Sacco${crypto.randomUUID().slice(0, 10)}!`;
+
+    const context = await auth.$context;
+    const accounts = await context.internalAdapter.findAccounts(target.authUserId);
+    const credentialAccount = accounts.find(
+      (account) => account.providerId === "credential",
+    );
+    const passwordHash = await context.password.hash(passwordToSet);
+
+    if (credentialAccount) {
+      await prisma.account.update({
+        where: { id: credentialAccount.id },
+        data: { password: passwordHash },
+      });
+    } else {
+      await context.internalAdapter.linkAccount({
+        userId: target.authUserId,
+        providerId: "credential",
+        accountId: target.authUserId,
+        password: passwordHash,
+      });
+    }
+
+    await prisma.session.deleteMany({
+      where: { userId: target.authUserId },
+    });
+
+    await AuditService.record({
+      saccoId: payload.saccoId,
+      actorId: payload.actorId,
+      action: "RESET_PASSWORD",
+      entity: "AppUser",
+      entityId: target.id,
+      after: {
+        id: target.id,
+        email: target.email,
+        role: target.role,
+      },
+    });
+
+    return {
+      id: target.id,
+      email: target.email,
+      role: target.role,
+      temporaryPassword: passwordToSet,
+    };
+  },
+
+  async updateAccess(payload: {
+    saccoId: string;
+    targetUserId: string;
+    actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    actorId?: string;
+    role?: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    isActive?: boolean;
+  }) {
+    const parsed = updateUserAccessSchema.parse({
+      role: payload.role,
+      isActive: payload.isActive,
+    });
+
+    const target = await prisma.appUser.findFirst({
+      where: {
+        id: payload.targetUserId,
+        saccoId: payload.saccoId,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!target) {
+      throw new Error("User not found");
+    }
+
+    const assignableRolesByActor = {
+      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      TREASURER: ["MEMBER"],
+      LOAN_OFFICER: ["MEMBER"],
+      AUDITOR: ["MEMBER"],
+      MEMBER: [],
+    } as const;
+
+    const manageableRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
+    if (!manageableRoles.includes(target.role)) {
+      throw new Error("You are not allowed to manage this user");
+    }
+
+    if (parsed.role && !manageableRoles.includes(parsed.role)) {
+      throw new Error("You are not allowed to assign this role");
+    }
+
+    const updated = await prisma.appUser.update({
+      where: { id: payload.targetUserId },
+      data: {
+        ...(parsed.role ? { role: parsed.role } : {}),
+        ...(parsed.isActive !== undefined ? { isActive: parsed.isActive } : {}),
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    await AuditService.record({
+      saccoId: payload.saccoId,
+      actorId: payload.actorId,
+      action: "UPDATE_ACCESS",
+      entity: "AppUser",
+      entityId: updated.id,
+      before: {
+        role: target.role,
+        isActive: target.isActive,
+      },
+      after: {
+        role: updated.role,
+        isActive: updated.isActive,
+      },
+    });
+
+    return updated;
+  },
+
+  async revokeSessions(payload: {
+    saccoId: string;
+    targetUserId: string;
+    actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    actorId?: string;
+  }) {
+    const target = await prisma.appUser.findFirst({
+      where: {
+        id: payload.targetUserId,
+        saccoId: payload.saccoId,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        authUserId: true,
+      },
+    });
+
+    if (!target) {
+      throw new Error("User not found");
+    }
+
+    const assignableRolesByActor = {
+      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
+      TREASURER: ["MEMBER"],
+      LOAN_OFFICER: ["MEMBER"],
+      AUDITOR: ["MEMBER"],
+      MEMBER: [],
+    } as const;
+
+    const manageableRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
+    if (!manageableRoles.includes(target.role)) {
+      throw new Error("You are not allowed to manage this user");
+    }
+
+    const result = await prisma.session.deleteMany({
+      where: { userId: target.authUserId },
+    });
+
+    await AuditService.record({
+      saccoId: payload.saccoId,
+      actorId: payload.actorId,
+      action: "REVOKE_SESSIONS",
+      entity: "AppUser",
+      entityId: target.id,
+      after: {
+        revokedSessions: result.count,
+      },
+    });
+
+    return {
+      id: target.id,
+      email: target.email,
+      revokedSessions: result.count,
+    };
   },
 
   async ensureMemberProfile(input: {

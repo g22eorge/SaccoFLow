@@ -9,7 +9,13 @@ const ADJUSTMENT_EVENT = "SHARE_ADJUSTMENT";
 const SHARE_EVENTS = [PURCHASE_EVENT, REDEMPTION_EVENT, ADJUSTMENT_EVENT];
 
 export const SharesService = {
-  async list(input: { saccoId: string; memberId?: string; page: number }) {
+  async list(input: {
+    saccoId: string;
+    memberId?: string;
+    page: number;
+    from?: Date;
+    to?: Date;
+  }) {
     const pageSize = 30;
     const skip = Math.max(input.page - 1, 0) * pageSize;
 
@@ -18,6 +24,14 @@ export const SharesService = {
         saccoId: input.saccoId,
         eventType: { in: SHARE_EVENTS },
         ...(input.memberId ? { memberId: input.memberId } : {}),
+        ...(input.from || input.to
+          ? {
+              createdAt: {
+                ...(input.from ? { gte: input.from } : {}),
+                ...(input.to ? { lte: input.to } : {}),
+              },
+            }
+          : {}),
       },
       include: {
         member: {

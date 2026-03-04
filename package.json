@@ -17,6 +17,7 @@
     "auth:generate": "better-auth generate",
     "admin:create-super": "bun run scripts/create-super-admin.ts",
     "phase1:check": "bun run scripts/phase1-check.ts",
+    "e2e:smoke": "bun run scripts/e2e-smoke.ts",
     "loans:reconcile": "bun run scripts/reconcile-overdue-loans.ts",
     "members:sync-existing": "bun run scripts/sync-existing-members.ts"
   },

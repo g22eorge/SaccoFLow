@@ -6,13 +6,27 @@ import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 
 export const SavingsService = {
-  async list(input: { saccoId: string; memberId?: string; page: number }) {
+  async list(input: {
+    saccoId: string;
+    memberId?: string;
+    page: number;
+    from?: Date;
+    to?: Date;
+  }) {
     const pageSize = 30;
     const skip = Math.max(input.page - 1, 0) * pageSize;
     return prisma.savingsTransaction.findMany({
       where: {
         saccoId: input.saccoId,
         ...(input.memberId ? { memberId: input.memberId } : {}),
+        ...(input.from || input.to
+          ? {
+              createdAt: {
+                ...(input.from ? { gte: input.from } : {}),
+                ...(input.to ? { lte: input.to } : {}),
+              },
+            }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take: pageSize,

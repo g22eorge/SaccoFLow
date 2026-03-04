@@ -7,7 +7,17 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId } = await requireSaccoContext();
   const search = request.nextUrl.searchParams.get("search") ?? undefined;
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
-  const members = await MembersService.list({ saccoId, search, page });
+  const from = request.nextUrl.searchParams.get("from");
+  const to = request.nextUrl.searchParams.get("to");
+  const fromDate = from ? new Date(`${from}T00:00:00`) : undefined;
+  const toDate = to ? new Date(`${to}T23:59:59`) : undefined;
+  const members = await MembersService.list({
+    saccoId,
+    search,
+    page,
+    from: fromDate,
+    to: toDate,
+  });
   return ok(members);
 });
 

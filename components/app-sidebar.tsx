@@ -1,19 +1,19 @@
 "use client"
 
 import * as React from "react"
+import type { Role } from "@prisma/client"
 import {
   IconCurrencyDollar,
   IconDashboard,
-  IconHelp,
-  IconSearch,
   IconSettings,
   IconUsers,
   IconCash,
   IconReport,
+  type Icon,
 } from "@tabler/icons-react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
+import { NavDocuments } from "@/components/nav-documents"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -26,13 +26,28 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const data = {
-  user: {
-    name: "SACCO User",
-    email: "user@sacco.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
+type SidebarItem = {
+  title: string
+  url: string
+  icon: Icon
+  roles?: Role[]
+}
+
+type QuickAccessItem = {
+  name: string
+  url: string
+  icon: Icon
+  roles?: Role[]
+}
+
+type ActionItem = {
+  title: string
+  url: string
+  icon: Icon
+  roles?: Role[]
+}
+
+const navMainItems: SidebarItem[] = [
     {
       title: "Dashboard",
       url: "/dashboard",
@@ -42,50 +57,161 @@ const data = {
       title: "Members",
       url: "/dashboard/members",
       icon: IconUsers,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
     {
       title: "Savings",
       url: "/dashboard/savings",
       icon: IconCash,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+    {
+      title: "Shares",
+      url: "/dashboard/shares",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
     {
       title: "Loans",
       url: "/dashboard/loans",
       icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
+    {
+      title: "Reports",
+      url: "/dashboard/reports",
+      icon: IconReport,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+    {
+      title: "Audit Logs",
+      url: "/dashboard/audit-logs",
+      icon: IconReport,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+]
+
+const navSecondaryItems: SidebarItem[] = [
     {
       title: "Settings",
       url: "/dashboard/settings",
       icon: IconSettings,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Help",
-      url: "#",
-      icon: IconHelp,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
     {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
+      title: "Users",
+      url: "/users",
+      icon: IconUsers,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN"],
     },
-  ],
-  documents: [
-    {
-      name: "Audit Logs",
-      url: "/dashboard/audit-logs",
-      icon: IconReport,
-    },
-    {
-      name: "Reports",
-      url: "/dashboard/reports",
-      icon: IconReport,
-    },
-  ],
-}
+]
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+const quickAccessItems: QuickAccessItem[] = [
+    {
+      name: "Approvals Queue",
+      url: "/dashboard/loans?status=PENDING",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      name: "Collections",
+      url: "/dashboard/loans?status=DEFAULTED",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      name: "Member Statements",
+      url: "/dashboard/reports#member-statements",
+      icon: IconReport,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+]
+
+const quickCreateItems: ActionItem[] = [
+  {
+    title: "New Member",
+    url: "/dashboard/members",
+    icon: IconUsers,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+  },
+  {
+    title: "Savings Transaction",
+    url: "/dashboard/savings",
+    icon: IconCash,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"],
+  },
+  {
+    title: "Share Transaction",
+    url: "/dashboard/shares",
+    icon: IconCurrencyDollar,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"],
+  },
+  {
+    title: "Loan Application",
+    url: "/dashboard/loans",
+    icon: IconCurrencyDollar,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+  },
+  {
+    title: "Create User",
+    url: "/users",
+    icon: IconUsers,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN"],
+  },
+]
+
+const inboxItems: Array<{
+  title: string
+  detail: string
+  url: string
+  icon: Icon
+  roles?: Role[]
+}> = [
+  {
+    title: "Pending approvals",
+    detail: "Review unapproved loan applications",
+    url: "/dashboard/loans?status=PENDING",
+    icon: IconCurrencyDollar,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+  },
+  {
+    title: "Collections",
+    detail: "Follow up defaulted loans",
+    url: "/dashboard/loans?status=DEFAULTED",
+    icon: IconCurrencyDollar,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+  },
+  {
+    title: "Audit alerts",
+    detail: "Review latest activity logs",
+    url: "/dashboard/audit-logs",
+    icon: IconReport,
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+  },
+]
+
+const hasRole = (role: Role, allowed?: Role[]) =>
+  !allowed || allowed.length === 0 || allowed.includes(role)
+
+export function AppSidebar({
+  role,
+  user,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  role: Role
+  user: { name: string; email: string }
+}) {
+  const navMain = navMainItems.filter((item) => hasRole(role, item.roles))
+  const navSecondary = navSecondaryItems.filter((item) => hasRole(role, item.roles))
+  const documents = quickAccessItems.filter((item) => hasRole(role, item.roles))
+  const createActions = quickCreateItems.filter((item) => hasRole(role, item.roles))
+  const workQueue = inboxItems.filter((item) => hasRole(role, item.roles))
+
+  const navUser = {
+    name: user.name,
+    email: user.email,
+    avatar: "/avatars/shadcn.jpg",
+  }
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -103,12 +229,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain
+          items={navMain}
+          quickCreateItems={createActions}
+          inboxItems={workQueue}
+        />
+        <NavDocuments items={documents} />
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={navUser} />
       </SidebarFooter>
     </Sidebar>
   )
