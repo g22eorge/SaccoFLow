@@ -8,7 +8,7 @@ export const POST = withApiHandler(
     _request: NextRequest,
     context: { params: Promise<{ id: string }> },
   ) => {
-    await requireWriteRoles(["SACCO_ADMIN", "LOAN_OFFICER"]);
+    await requireWriteRoles(["SACCO_ADMIN", "LOAN_OFFICER", "TREASURER", "CHAIRPERSON"]);
     const { id: actorId, saccoId } = await requireSaccoContext();
     const { id } = await context.params;
     const loan = await LoansService.approve(id, saccoId, actorId);

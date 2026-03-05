@@ -18,6 +18,8 @@ type LoanProductOption = {
   maxPrincipal: string;
   minTermMonths: number;
   maxTermMonths: number;
+  annualRatePercent: string | null;
+  monthlyRatePercent: string | null;
   repaymentFrequency: string;
   isActive: boolean;
   isDefault: boolean;
@@ -41,6 +43,11 @@ type LoanRow = {
   scheduleApprovalScore: number | null;
   scheduleApprovalRiskTier: string | null;
   scheduleApprovalReasons: string[];
+  approvalRequiredCount: number;
+  approvalCurrentCount: number;
+  approvalCompleted: boolean;
+  approvalSlaDueAt: string | null;
+  approvalRoleGroups: string[];
 };
 
 const trustReasonLabel = (reason: string) => {
@@ -78,10 +85,11 @@ export function LoanManagement({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const activeLoanProducts = loanProducts.filter((product) => product.isActive);
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [principalAmount, setPrincipalAmount] = useState("");
   const [termMonths, setTermMonths] = useState("1");
-  const [loanProductId, setLoanProductId] = useState(loanProducts[0]?.id ?? "");
+  const [loanProductId, setLoanProductId] = useState(activeLoanProducts[0]?.id ?? "");
   const [newProductName, setNewProductName] = useState("");
   const [newProductMinPrincipal, setNewProductMinPrincipal] = useState("100000");
   const [newProductMaxPrincipal, setNewProductMaxPrincipal] = useState("1000000");
@@ -89,11 +97,14 @@ export function LoanManagement({
   const [newProductMaxTerm, setNewProductMaxTerm] = useState("12");
   const [newProductFrequency, setNewProductFrequency] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("MONTHLY");
   const [newProductDefault, setNewProductDefault] = useState(false);
+  const [newProductAnnualRate, setNewProductAnnualRate] = useState("");
+  const [newProductMonthlyRate, setNewProductMonthlyRate] = useState("");
   const [repayAmounts, setRepayAmounts] = useState<Record<string, string>>({});
   const [busyLoanId, setBusyLoanId] = useState<string | null>(null);
   const [loadingApply, setLoadingApply] = useState(false);
   const [loadingCreateProduct, setLoadingCreateProduct] = useState(false);
   const [loadingSeedStandardProducts, setLoadingSeedStandardProducts] = useState(false);
+  const [loadingProductActionId, setLoadingProductActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -103,7 +114,7 @@ export function LoanManagement({
   const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">("dueSoon");
 
   const selectedLoanProduct =
-    loanProducts.find((product) => product.id === loanProductId) ?? loanProducts[0] ?? null;
+    loanProducts.find((product) => product.id === loanProductId) ?? activeLoanProducts[0] ?? null;
 
   useEffect(() => {
     const status = searchParams.get("status");
@@ -208,6 +219,8 @@ export function LoanManagement({
           maxPrincipal: Number(newProductMaxPrincipal),
           minTermMonths: Number(newProductMinTerm),
           maxTermMonths: Number(newProductMaxTerm),
+          annualRatePercent: newProductAnnualRate ? Number(newProductAnnualRate) : undefined,
+          monthlyRatePercent: newProductMonthlyRate ? Number(newProductMonthlyRate) : undefined,
           repaymentFrequency: newProductFrequency,
           isActive: true,
           isDefault: newProductDefault,
@@ -222,11 +235,36 @@ export function LoanManagement({
       setMessage(`Loan product ${payload.data?.name ?? newProductName} created.`);
       setNewProductName("");
       setNewProductDefault(false);
+      setNewProductAnnualRate("");
+      setNewProductMonthlyRate("");
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unexpected error");
     } finally {
       setLoadingCreateProduct(false);
+    }
+  };
+
+  const updateProduct = async (productId: string, payload: Record<string, unknown>) => {
+    setLoadingProductActionId(productId);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/loan-products/${productId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message ?? "Failed to update loan product");
+      }
+      setMessage("Loan product updated.");
+      router.refresh();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Unexpected error");
+    } finally {
+      setLoadingProductActionId(null);
     }
   };
 
@@ -354,7 +392,7 @@ export function LoanManagement({
             }}
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            {loanProducts.map((product) => (
+            {activeLoanProducts.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name} ({product.repaymentFrequency})
               </option>
@@ -397,9 +435,12 @@ export function LoanManagement({
             Product limits: {formatMoney(selectedLoanProduct.minPrincipal)} - {formatMoney(selectedLoanProduct.maxPrincipal)} | Term {selectedLoanProduct.minTermMonths}-{selectedLoanProduct.maxTermMonths} months
           </p>
         ) : null}
+        {activeLoanProducts.length === 0 ? (
+          <p className="text-xs text-red-700">No active loan products. Activate one before applying loans.</p>
+        ) : null}
         <button
           type="submit"
-          disabled={loadingApply}
+          disabled={loadingApply || activeLoanProducts.length === 0}
           className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-60"
         >
           {loadingApply ? "Submitting..." : "Apply Loan"}
@@ -468,6 +509,24 @@ export function LoanManagement({
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             placeholder="Max term"
           />
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={newProductAnnualRate}
+            onChange={(event) => setNewProductAnnualRate(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Annual rate override %"
+          />
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={newProductMonthlyRate}
+            onChange={(event) => setNewProductMonthlyRate(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Monthly rate override %"
+          />
           <select
             value={newProductFrequency}
             onChange={(event) =>
@@ -496,6 +555,66 @@ export function LoanManagement({
           {loadingCreateProduct ? "Creating..." : "Create Product"}
         </button>
       </form>
+
+      <section className="rounded-lg border bg-card p-6">
+        <h2 className="text-lg font-semibold">Loan Product Lifecycle</h2>
+        <p className="text-sm text-muted-foreground">
+          Manage default product, activation state, and product-level interest overrides.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {loanProducts.map((product) => (
+            <article key={product.id} className="rounded-md border bg-background px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{product.name}</p>
+                <div className="flex items-center gap-1">
+                  {product.isDefault ? (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                      Default
+                    </span>
+                  ) : null}
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-xs ${
+                      product.isActive
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-700"
+                    }`}
+                  >
+                    {product.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatMoney(product.minPrincipal)} - {formatMoney(product.maxPrincipal)} | {product.minTermMonths}-{product.maxTermMonths} months
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Rate override: {product.annualRatePercent ? `${product.annualRatePercent}% annual` : "Default annual"} | {product.monthlyRatePercent ? `${product.monthlyRatePercent}% monthly` : "Default monthly"}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {!product.isDefault ? (
+                  <button
+                    type="button"
+                    disabled={loadingProductActionId === product.id}
+                    onClick={() => updateProduct(product.id, { isDefault: true, isActive: true })}
+                    className="rounded-lg border border-border px-2 py-1 text-xs"
+                  >
+                    Set Default
+                  </button>
+                ) : null}
+                {!product.isDefault ? (
+                  <button
+                    type="button"
+                    disabled={loadingProductActionId === product.id}
+                    onClick={() => updateProduct(product.id, { isActive: !product.isActive })}
+                    className="rounded-lg border border-border px-2 py-1 text-xs"
+                  >
+                    {product.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <div className="rounded-lg border bg-card p-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -619,6 +738,25 @@ export function LoanManagement({
                     {loan.termMonths} months)
                   </span>
                 </p>
+                {loan.status === "PENDING" ? (
+                  <p>
+                    Approval progress:{" "}
+                    <span className="font-semibold text-foreground">
+                      {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
+                    </span>
+                    {loan.approvalRoleGroups.length > 0
+                      ? ` | ${loan.approvalRoleGroups.join("+")}`
+                      : ""}
+                  </p>
+                ) : null}
+                {loan.status === "PENDING" && loan.approvalSlaDueAt ? (
+                  <p>
+                    Approval SLA:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatUtcDate(loan.approvalSlaDueAt)}
+                    </span>
+                  </p>
+                ) : null}
                 {loan.scheduleAutoApproved ? (
                   <p>
                     Auto score:{" "}
@@ -645,7 +783,7 @@ export function LoanManagement({
                     onClick={() => callLoanAction(loan.id, "approve")}
                     className="rounded-lg border border-border px-2 py-1"
                   >
-                    Approve
+                    {loan.approvalCurrentCount > 0 ? "Approve next step" : "Start approval"}
                   </button>
                 ) : null}
                 {loan.status === "APPROVED" ? (

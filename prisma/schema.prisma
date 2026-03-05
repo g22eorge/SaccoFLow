@@ -138,6 +138,8 @@ model LoanProduct {
   maxPrincipal       Decimal
   minTermMonths      Int
   maxTermMonths      Int
+  annualRatePercent  Decimal?
+  monthlyRatePercent Decimal?
   repaymentFrequency String   @default("MONTHLY")
   requireGuarantor   Boolean  @default(false)
   requireCollateral  Boolean  @default(false)

@@ -409,7 +409,12 @@ describe("Loans API", () => {
       id: "loan-1",
       saccoId: "sacco-1",
     });
-    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "LOAN_OFFICER"]);
+    expect(state.writeRoleCalls[0]).toEqual([
+      "SACCO_ADMIN",
+      "LOAN_OFFICER",
+      "TREASURER",
+      "CHAIRPERSON",
+    ]);
   });
 
   it("POST /api/loans/:id/disburse forwards sacco context", async () => {
@@ -542,7 +547,7 @@ describe("Reports API", () => {
 
 describe("Settings API", () => {
   it("GET /api/settings returns sacco settings", async () => {
-    const response = await settingsRoute.GET({} as never);
+    const response = await settingsRoute.GET();
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -551,6 +556,8 @@ describe("Settings API", () => {
     expect(state.roleCalls[0]).toEqual([
       "SACCO_ADMIN",
       "SUPER_ADMIN",
+      "CHAIRPERSON",
+      "BOARD_MEMBER",
       "TREASURER",
       "AUDITOR",
       "LOAN_OFFICER",
@@ -575,7 +582,7 @@ describe("Settings API", () => {
         interest: { annualRatePercent: 20 },
       },
     });
-    expect(state.roleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN"]);
+    expect(state.roleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"]);
   });
 });
 

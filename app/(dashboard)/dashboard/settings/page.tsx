@@ -23,6 +23,7 @@ export default async function SettingsPage() {
   }
 
   const settings = await SettingsService.get(saccoId);
+  const versions = await SettingsService.listVersions(saccoId, 12);
   const canEdit = EDIT_ROLES.includes(role);
 
   return (
@@ -44,7 +45,7 @@ export default async function SettingsPage() {
                   </p>
                 </div>
 
-                <SettingsForm initialSettings={settings} canEdit={canEdit} />
+                <SettingsForm initialSettings={settings} initialVersions={versions} canEdit={canEdit} />
               </section>
             </div>
           </div>

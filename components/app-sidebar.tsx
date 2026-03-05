@@ -88,7 +88,13 @@ const navMainItems: SidebarItem[] = [
       title: "Loans",
       url: "/dashboard/loans",
       icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      title: "Collections",
+      url: "/dashboard/collections",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Reports",
@@ -124,13 +130,13 @@ const quickAccessItems: QuickAccessItem[] = [
       name: "Approvals Queue",
       url: "/dashboard/loans?status=PENDING",
       icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
     },
     {
       name: "Collections",
-      url: "/dashboard/loans?status=DEFAULTED",
+      url: "/dashboard/collections",
       icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
     },
     {
       name: "Member Statements",
@@ -163,7 +169,7 @@ const quickCreateItems: ActionItem[] = [
     title: "Loan Application",
     url: "/dashboard/loans",
     icon: IconCurrencyDollar,
-    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
   },
   {
     title: "Create User",
@@ -185,14 +191,14 @@ const inboxItems: Array<{
     detail: "Review unapproved loan applications",
     url: "/dashboard/loans?status=PENDING",
     icon: IconCurrencyDollar,
-    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
   },
   {
     title: "Collections",
     detail: "Follow up defaulted loans",
-    url: "/dashboard/loans?status=DEFAULTED",
+    url: "/dashboard/collections",
     icon: IconCurrencyDollar,
-    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
   },
   {
     title: "Audit alerts",

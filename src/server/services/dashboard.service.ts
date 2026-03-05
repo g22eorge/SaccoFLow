@@ -42,6 +42,10 @@ export const DashboardService = {
       totalShareCapital,
       pendingDisbursementAgg,
       memberRequestLogs,
+      outstandingExposureAgg,
+      par30ExposureAgg,
+      par90ExposureAgg,
+      memberExposureBuckets,
     ] = await Promise.all([
       SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
@@ -145,6 +149,50 @@ export const DashboardService = {
           afterJson: true,
         },
       }),
+      prisma.loan.aggregate({
+        where: { saccoId, status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] } },
+        _sum: {
+          outstandingPrincipal: true,
+          outstandingInterest: true,
+          outstandingPenalty: true,
+        },
+      }),
+      prisma.loan.aggregate({
+        where: {
+          saccoId,
+          status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+          dueAt: { lt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+        },
+        _sum: {
+          outstandingPrincipal: true,
+          outstandingInterest: true,
+          outstandingPenalty: true,
+        },
+      }),
+      prisma.loan.aggregate({
+        where: {
+          saccoId,
+          status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+          dueAt: { lt: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) },
+        },
+        _sum: {
+          outstandingPrincipal: true,
+          outstandingInterest: true,
+          outstandingPenalty: true,
+        },
+      }),
+      prisma.loan.groupBy({
+        by: ["memberId"],
+        where: {
+          saccoId,
+          status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+        },
+        _sum: {
+          outstandingPrincipal: true,
+          outstandingInterest: true,
+          outstandingPenalty: true,
+        },
+      }),
     ]);
 
     const pendingMemberRequests = memberRequestLogs.reduce((count, log) => {
@@ -187,10 +235,50 @@ export const DashboardService = {
     const pendingDisbursementAmount = toDecimal(
       pendingDisbursementAgg._sum.principalAmount,
     );
+
+    const totalOutstandingExposure = toDecimal(
+      outstandingExposureAgg._sum.outstandingPrincipal,
+    )
+      .plus(toDecimal(outstandingExposureAgg._sum.outstandingInterest))
+      .plus(toDecimal(outstandingExposureAgg._sum.outstandingPenalty));
+
+    const par30Exposure = toDecimal(par30ExposureAgg._sum.outstandingPrincipal)
+      .plus(toDecimal(par30ExposureAgg._sum.outstandingInterest))
+      .plus(toDecimal(par30ExposureAgg._sum.outstandingPenalty));
+
+    const par90Exposure = toDecimal(par90ExposureAgg._sum.outstandingPrincipal)
+      .plus(toDecimal(par90ExposureAgg._sum.outstandingInterest))
+      .plus(toDecimal(par90ExposureAgg._sum.outstandingPenalty));
+
+    const top5Exposure = memberExposureBuckets
+      .map((bucket) =>
+        toDecimal(bucket._sum.outstandingPrincipal)
+          .plus(toDecimal(bucket._sum.outstandingInterest))
+          .plus(toDecimal(bucket._sum.outstandingPenalty)),
+      )
+      .sort((a, b) => Number(b.minus(a)))
+      .slice(0, 5)
+      .reduce((sum, value) => sum.plus(value), new Prisma.Decimal(0));
+
+    const par30Percent = totalOutstandingExposure.greaterThan(0)
+      ? Number(par30Exposure.div(totalOutstandingExposure).mul(100).toFixed(2))
+      : 0;
+    const par90Percent = totalOutstandingExposure.greaterThan(0)
+      ? Number(par90Exposure.div(totalOutstandingExposure).mul(100).toFixed(2))
+      : 0;
+    const concentrationTop5Percent = totalOutstandingExposure.greaterThan(0)
+      ? Number(top5Exposure.div(totalOutstandingExposure).mul(100).toFixed(2))
+      : 0;
+    const recoveryRate30d = toDecimal(disbursement30._sum.principalAmount).greaterThan(0)
+      ? Number(toDecimal(repayment30._sum.amount).div(toDecimal(disbursement30._sum.principalAmount)).mul(100).toFixed(2))
+      : 0;
     const liquidityLendableFunds = Prisma.Decimal.max(
       new Prisma.Decimal(0),
       totalSavingsBalance.minus(liquidityReserveAmount).minus(pendingDisbursementAmount),
     );
+    const liquidityCoveragePercent = pendingDisbursementAmount.greaterThan(0)
+      ? Number(liquidityLendableFunds.div(pendingDisbursementAmount).mul(100).toFixed(2))
+      : 999;
     const deployableShareCapital = toDecimal(totalShareCapital)
       .mul(settings.savings.deployableShareCapitalRatioPercent)
       .div(100);
@@ -249,6 +337,11 @@ export const DashboardService = {
         deployableShareCapital: formatMoney(deployableShareCapital.toFixed(2)),
         deployableShareCapitalRatioPercent:
           settings.savings.deployableShareCapitalRatioPercent,
+        par30Percent,
+        par90Percent,
+        concentrationTop5Percent,
+        liquidityCoveragePercent,
+        recoveryRate30d,
       },
       recentActivity,
     };

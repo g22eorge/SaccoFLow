@@ -79,6 +79,15 @@ export default async function Page() {
   const pendingApprovals = Number(dashboard.kpis.pendingApprovals);
   const pendingLoanRequests = Number(dashboard.kpis.pendingLoanRequests ?? 0);
   const pendingMemberRequests = Number(dashboard.kpis.pendingMemberRequests ?? 0);
+  const par30Percent = Number(dashboard.monitors.par30Percent ?? 0);
+  const par90Percent = Number(dashboard.monitors.par90Percent ?? 0);
+  const concentrationTop5Percent = Number(
+    dashboard.monitors.concentrationTop5Percent ?? 0,
+  );
+  const liquidityCoveragePercent = Number(
+    dashboard.monitors.liquidityCoveragePercent ?? 0,
+  );
+  const recoveryRate30d = Number(dashboard.monitors.recoveryRate30d ?? 0);
   const utilizationPercent =
     capitalCapacity > 0 ? (outstandingPrincipal / capitalCapacity) * 100 : 0;
 
@@ -367,6 +376,37 @@ export default async function Page() {
                     </div>
                   </section>
                 </div>
+
+                <section className="rounded-lg border bg-card p-6">
+                  <h2 className="text-lg font-semibold">Executive KPI Pack</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Board-level risk, concentration, liquidity, and recovery indicators.
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">PAR 30</p>
+                      <p className="mt-1 text-xl font-semibold">{par30Percent.toFixed(1)}%</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">PAR 90</p>
+                      <p className="mt-1 text-xl font-semibold">{par90Percent.toFixed(1)}%</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Top 5 Concentration</p>
+                      <p className="mt-1 text-xl font-semibold">{concentrationTop5Percent.toFixed(1)}%</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Liquidity Coverage</p>
+                      <p className="mt-1 text-xl font-semibold">
+                        {liquidityCoveragePercent >= 999 ? "n/a" : `${liquidityCoveragePercent.toFixed(1)}%`}
+                      </p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Recovery Rate 30D</p>
+                      <p className="mt-1 text-xl font-semibold">{recoveryRate30d.toFixed(1)}%</p>
+                    </article>
+                  </div>
+                </section>
 
                 <section className="rounded-lg border bg-card p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">

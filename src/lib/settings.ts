@@ -94,6 +94,7 @@ export const settingsSchema = z.object({
     disbursementApprovalThreshold: z.number().nonnegative(),
     savingsWithdrawalThreshold: z.number().nonnegative(),
     requiredApproverCount: z.number().int().positive(),
+    approvalSlaHours: z.number().int().positive(),
   }),
   autoDecision: z.object({
     enableGreenAutoScheduleApproval: z.boolean(),
@@ -277,6 +278,7 @@ export const defaultSettings: AppSettings = {
     disbursementApprovalThreshold: 1000000,
     savingsWithdrawalThreshold: 300000,
     requiredApproverCount: 2,
+    approvalSlaHours: 24,
   },
   autoDecision: {
     enableGreenAutoScheduleApproval: true,
@@ -668,6 +670,7 @@ export const settingsSections: SettingsSection[] = [
         type: "number",
       },
       { key: "requiredApproverCount", label: "Required approvers", type: "number" },
+      { key: "approvalSlaHours", label: "Approval SLA (hours)", type: "number" },
     ],
   },
   {

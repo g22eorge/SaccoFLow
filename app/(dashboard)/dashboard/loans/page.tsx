@@ -68,7 +68,7 @@ export default async function LoansPage({
 }) {
   const { saccoId, role } = await requireSaccoContext();
   if (
-    !["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
+    !["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
   ) {
     redirect("/dashboard");
   }
@@ -88,6 +88,19 @@ export default async function LoansPage({
     select: {
       entityId: true,
       action: true,
+      afterJson: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const approvalMatrixStates = await prisma.auditLog.findMany({
+    where: {
+      saccoId,
+      entity: "LoanApprovalMatrixState",
+      entityId: { in: loans.map((loan) => loan.id) },
+    },
+    select: {
+      entityId: true,
       afterJson: true,
       createdAt: true,
     },
@@ -130,6 +143,44 @@ export default async function LoansPage({
       riskTier: typeof after?.assessment?.riskTier === "string" ? after.assessment.riskTier : null,
     });
   }
+  const approvalMatrixByLoanId = new Map<
+    string,
+    {
+      requiredApproverCount: number;
+      approvalsCount: number;
+      completed: boolean;
+      slaDueAtIso: string | null;
+      requiredRoleGroups: string[];
+    }
+  >();
+  for (const entry of approvalMatrixStates) {
+    if (approvalMatrixByLoanId.has(entry.entityId)) {
+      continue;
+    }
+    if (!entry.afterJson) {
+      continue;
+    }
+    try {
+      const payload = JSON.parse(entry.afterJson) as {
+        requiredApproverCount?: number;
+        approvals?: unknown[];
+        completed?: boolean;
+        slaDueAtIso?: string;
+        requiredRoleGroups?: string[];
+      };
+      approvalMatrixByLoanId.set(entry.entityId, {
+        requiredApproverCount: Number(payload.requiredApproverCount ?? 1),
+        approvalsCount: Array.isArray(payload.approvals) ? payload.approvals.length : 0,
+        completed: Boolean(payload.completed),
+        slaDueAtIso: typeof payload.slaDueAtIso === "string" ? payload.slaDueAtIso : null,
+        requiredRoleGroups: Array.isArray(payload.requiredRoleGroups)
+          ? payload.requiredRoleGroups.filter((value) => typeof value === "string")
+          : [],
+      });
+    } catch {
+      continue;
+    }
+  }
   const hasNextPage = loans.length === 30;
   const shareBalances = await Promise.all(
     members.map(async (member) => ({
@@ -166,6 +217,13 @@ export default async function LoansPage({
     scheduleApprovalScore: scheduleApprovalMetaByLoanId.get(loan.id)?.score ?? null,
     scheduleApprovalRiskTier: scheduleApprovalMetaByLoanId.get(loan.id)?.riskTier ?? null,
     scheduleApprovalReasons: scheduleApprovalMetaByLoanId.get(loan.id)?.reasonCodes ?? [],
+    approvalRequiredCount:
+      approvalMatrixByLoanId.get(loan.id)?.requiredApproverCount ??
+      Number(settings.approvalWorkflow.requiredApproverCount ?? 1),
+    approvalCurrentCount: approvalMatrixByLoanId.get(loan.id)?.approvalsCount ?? 0,
+    approvalCompleted: approvalMatrixByLoanId.get(loan.id)?.completed ?? false,
+    approvalSlaDueAt: approvalMatrixByLoanId.get(loan.id)?.slaDueAtIso ?? null,
+    approvalRoleGroups: approvalMatrixByLoanId.get(loan.id)?.requiredRoleGroups ?? [],
   }));
 
   const repaymentSummaries =
@@ -205,6 +263,8 @@ export default async function LoansPage({
     maxPrincipal: product.maxPrincipal.toString(),
     minTermMonths: product.minTermMonths,
     maxTermMonths: product.maxTermMonths,
+    annualRatePercent: product.annualRatePercent?.toString() ?? null,
+    monthlyRatePercent: product.monthlyRatePercent?.toString() ?? null,
     repaymentFrequency: product.repaymentFrequency,
     isActive: product.isActive,
     isDefault: product.isDefault,

@@ -70,6 +70,14 @@ mock.module("@/src/server/services/settings.service", () => ({
         tertiaryTarget: "PRINCIPAL",
         overpaymentHandling: "HOLD_AS_CREDIT",
       },
+      approvalWorkflow: {
+        makerCheckerEnabled: true,
+        loanApprovalThreshold: 1000000,
+        disbursementApprovalThreshold: 1000000,
+        savingsWithdrawalThreshold: 300000,
+        requiredApproverCount: 2,
+        approvalSlaHours: 24,
+      },
       autoDecision: {
         enableGreenAutoScheduleApproval: true,
         enableDelinquencyEarlyWarnings: true,

@@ -152,6 +152,46 @@ export default async function MemberSnapshotPage({
     0,
   );
 
+  const pendingRequestsCount = requests.filter(
+    (request) => request.status === "PENDING",
+  ).length;
+  const approvedRequestsCount = requests.filter(
+    (request) => request.status === "APPROVED",
+  ).length;
+  const rejectedRequestsCount = requests.filter(
+    (request) => request.status === "REJECTED",
+  ).length;
+
+  const defaultedLoansCount = loans.filter(
+    (loan) => loan.status === "DEFAULTED",
+  ).length;
+  const overdueLoansCount = loans.filter(
+    (loan) => loan.dueAt && loan.dueAt.getTime() < now.getTime() && ["ACTIVE", "DISBURSED", "DEFAULTED"].includes(loan.status),
+  ).length;
+  const hasRepaymentHistory = repayments.length >= 3;
+  const hasSavingsConsistency = (deposits30dTotal._count._all ?? 0) >= 2;
+
+  let trustScore = 100;
+  if (!hasRepaymentHistory) {
+    trustScore -= 12;
+  }
+  if (!hasSavingsConsistency) {
+    trustScore -= 10;
+  }
+  if (overdueLoansCount > 0) {
+    trustScore -= Math.min(25, overdueLoansCount * 10);
+  }
+  if (defaultedLoansCount > 0) {
+    trustScore -= Math.min(40, defaultedLoansCount * 20);
+  }
+  trustScore = Math.max(0, Math.min(100, trustScore));
+
+  const trustTier = trustScore >= 80 ? "GREEN" : trustScore >= 60 ? "AMBER" : "RED";
+  const relationshipValue =
+    Number((depositsLifetimeTotal._sum.amount ?? 0).toString()) +
+    Number(shareBalance.toString()) +
+    repaidTotal;
+
   return (
     <>
       <SiteHeader title="Member Snapshot" />
@@ -199,6 +239,41 @@ export default async function MemberSnapshotPage({
               <p className="mt-1 text-xs text-muted-foreground">From latest {repayments.length} repayments</p>
             </article>
           </div>
+
+          <section className="rounded-lg border bg-card p-6">
+            <h2 className="text-lg font-semibold">Member 360 Risk & Relationship</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Trust posture, service behavior, and relationship value in one view.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <article className="rounded-md border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Trust Score</p>
+                <p className="mt-1 text-xl font-semibold">{trustScore}/100</p>
+              </article>
+              <article className="rounded-md border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Trust Tier</p>
+                <p className="mt-1 text-xl font-semibold">{trustTier}</p>
+              </article>
+              <article className="rounded-md border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Relationship Value</p>
+                <p className="mt-1 text-xl font-semibold">{formatMoney(relationshipValue)}</p>
+              </article>
+              <article className="rounded-md border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Open Service Requests</p>
+                <p className="mt-1 text-xl font-semibold">{pendingRequestsCount}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Approved {approvedRequestsCount} | Rejected {rejectedRequestsCount}
+                </p>
+              </article>
+              <article className="rounded-md border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Credit Flags</p>
+                <p className="mt-1 text-xl font-semibold">{overdueLoansCount + defaultedLoansCount}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Overdue {overdueLoansCount} | Defaulted {defaultedLoansCount}
+                </p>
+              </article>
+            </div>
+          </section>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-lg border bg-card p-6">

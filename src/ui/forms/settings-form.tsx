@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Fragment } from "react";
 import { useRouter } from "next/navigation";
+import { formatDateTimeUtc } from "@/src/lib/datetime";
 import {
   AppSettings,
   SettingsField,
@@ -11,6 +12,16 @@ import {
 
 type SettingsFormProps = {
   initialSettings: AppSettings;
+  initialVersions: Array<{
+    id: string;
+    action: string;
+    createdAt: string;
+    actorName: string | null;
+    actorEmail: string | null;
+    actorRole: string | null;
+    sourceVersionId: string | null;
+    changedCount: number;
+  }>;
   canEdit: boolean;
 };
 
@@ -66,13 +77,15 @@ const parseNumber = (value: string) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
+export function SettingsForm({ initialSettings, initialVersions, canEdit }: SettingsFormProps) {
   const router = useRouter();
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
+  const versions = initialVersions;
   const [activeGroup, setActiveGroup] = useState<SectionGroupKey>("lending");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [rollbackBusyId, setRollbackBusyId] = useState<string | null>(null);
 
   const applyAutoDecisionPreset = (
     preset: "conservative" | "balanced" | "aggressive",
@@ -280,6 +293,31 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
     }
   };
 
+  const rollbackToVersion = async (versionId: string) => {
+    setRollbackBusyId(versionId);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/settings/versions/rollback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ versionId }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error?.message ?? "Failed to rollback settings version");
+      }
+
+      setMessage("Settings rolled back to selected version.");
+      router.refresh();
+    } catch (rollbackError) {
+      setError(rollbackError instanceof Error ? rollbackError.message : "Unexpected rollback error");
+    } finally {
+      setRollbackBusyId(null);
+    }
+  };
+
   const renderInput = (
     sectionKey: keyof AppSettings,
     field: SettingsField,
@@ -372,6 +410,43 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
               {sectionGroupLabels[groupKey]}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-card p-6">
+        <h2 className="text-lg font-semibold">Policy Version History</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Review recent policy snapshots and rollback when needed.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {versions.map((version) => (
+            <article key={version.id} className="rounded-md border bg-background px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{version.action}</p>
+                <p className="text-xs text-muted-foreground">{formatDateTimeUtc(version.createdAt)}</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                By {version.actorName ?? version.actorEmail ?? "System"}
+                {version.actorRole ? ` (${version.actorRole})` : ""}
+              </p>
+              {version.sourceVersionId ? (
+                <p className="mt-1 text-xs text-muted-foreground">From version: {version.sourceVersionId.slice(0, 8)}</p>
+              ) : null}
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => rollbackToVersion(version.id)}
+                  disabled={rollbackBusyId === version.id}
+                  className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs"
+                >
+                  {rollbackBusyId === version.id ? "Rolling back..." : "Rollback to this version"}
+                </button>
+              ) : null}
+            </article>
+          ))}
+          {versions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No policy versions recorded yet.</p>
+          ) : null}
         </div>
       </section>
 

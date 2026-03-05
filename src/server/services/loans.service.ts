@@ -11,6 +11,24 @@ import { LoanProductsService } from "@/src/server/services/loan-products.service
 
 type AllocationTarget = "PENALTY" | "INTEREST" | "PRINCIPAL";
 
+type ApprovalStep = {
+  actorId: string;
+  actorRole: string;
+  decidedAtIso: string;
+};
+
+type ApprovalMatrixState = {
+  loanId: string;
+  requiredApproverCount: number;
+  requiredRoleGroups: Array<"CREDIT" | "FINANCE">;
+  approvals: ApprovalStep[];
+  completed: boolean;
+  riskTier: "GREEN" | "AMBER" | "RED";
+  slaDueAtIso: string;
+  startedAtIso: string;
+  completedAtIso: string | null;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const addMonths = (date: Date, months: number) => {
@@ -265,6 +283,31 @@ const assessAutoScheduleEligibility = async (input: {
   };
 };
 
+const roleInGroup = (
+  role: string,
+  group: "CREDIT" | "FINANCE",
+) => {
+  if (group === "CREDIT") {
+    return ["LOAN_OFFICER", "SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"].includes(role);
+  }
+  return ["TREASURER", "SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"].includes(role);
+};
+
+const parseApprovalMatrixState = (raw: string | null): ApprovalMatrixState | null => {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as ApprovalMatrixState;
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.approvals)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 const frequencyDays: Record<string, number> = {
   DAILY: 1,
   WEEKLY: 7,
@@ -352,8 +395,12 @@ export const LoansService = {
     const interestAmount = getInterestAmount(
       principalAmount,
       termMonths,
-      settings.interest.annualRatePercent,
-      settings.interest.monthlyRatePercent,
+      loanProduct.annualRatePercent !== null
+        ? Number(loanProduct.annualRatePercent.toString())
+        : settings.interest.annualRatePercent,
+      loanProduct.monthlyRatePercent !== null
+        ? Number(loanProduct.monthlyRatePercent.toString())
+        : settings.interest.monthlyRatePercent,
     );
     const dueAt = addMonths(new Date(), termMonths);
 
@@ -400,6 +447,142 @@ export const LoansService = {
       throw new Error("Only pending loans can be approved");
     }
 
+    if (!actorId) {
+      throw new Error("Missing approver context");
+    }
+
+    const [settings, actor] = await Promise.all([
+      SettingsService.get(saccoId),
+      prisma.appUser.findFirst({
+        where: { id: actorId, saccoId, isActive: true },
+        select: { id: true, role: true },
+      }),
+    ]);
+
+    if (!actor) {
+      throw new Error("Approver account not found");
+    }
+
+    const assessment = await assessAutoScheduleEligibility({
+      saccoId,
+      memberId: existing.memberId,
+      principalAmount: existing.principalAmount,
+    });
+
+    const requiresDualControl =
+      Number(existing.principalAmount.toString()) >= settings.approvalWorkflow.loanApprovalThreshold ||
+      assessment.riskTier !== "GREEN";
+
+    const requiredApproverCount = Math.max(
+      requiresDualControl ? 2 : 1,
+      settings.approvalWorkflow.requiredApproverCount,
+    );
+
+    const requiredRoleGroups: Array<"CREDIT" | "FINANCE"> = requiresDualControl
+      ? ["CREDIT", "FINANCE"]
+      : ["CREDIT"];
+
+    const matrixLog = await prisma.auditLog.findFirst({
+      where: {
+        saccoId,
+        entity: "LoanApprovalMatrixState",
+        entityId: id,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const baseState: ApprovalMatrixState =
+      parseApprovalMatrixState(matrixLog?.afterJson ?? null) ?? {
+        loanId: id,
+        requiredApproverCount,
+        requiredRoleGroups,
+        approvals: [],
+        completed: false,
+        riskTier: assessment.riskTier as "GREEN" | "AMBER" | "RED",
+        slaDueAtIso: new Date(
+          Date.now() + settings.approvalWorkflow.approvalSlaHours * 60 * 60 * 1000,
+        ).toISOString(),
+        startedAtIso: new Date().toISOString(),
+        completedAtIso: null,
+      };
+
+    if (!requiredRoleGroups.some((group) => roleInGroup(actor.role, group))) {
+      throw new Error("Approver role is not eligible for this approval matrix");
+    }
+
+    const alreadyApproved = baseState.approvals.some((step) => step.actorId === actor.id);
+    const nextApprovals = alreadyApproved
+      ? baseState.approvals
+      : [
+          ...baseState.approvals,
+          {
+            actorId: actor.id,
+            actorRole: actor.role,
+            decidedAtIso: new Date().toISOString(),
+          },
+        ];
+
+    const roleGroupCoverage = requiredRoleGroups.every((group) =>
+      nextApprovals.some((step) => roleInGroup(step.actorRole, group)),
+    );
+    const countCoverage = nextApprovals.length >= requiredApproverCount;
+    const completed = roleGroupCoverage && countCoverage;
+
+    const nextState: ApprovalMatrixState = {
+      ...baseState,
+      requiredApproverCount,
+      requiredRoleGroups,
+      approvals: nextApprovals,
+      completed,
+      completedAtIso: completed ? new Date().toISOString() : null,
+      riskTier: assessment.riskTier as "GREEN" | "AMBER" | "RED",
+    };
+
+    if (matrixLog) {
+      await prisma.auditLog.update({
+        where: { id: matrixLog.id },
+        data: { afterJson: JSON.stringify(nextState) },
+      });
+    } else {
+      await AuditService.record({
+        saccoId,
+        actorId,
+        action: "INIT_APPROVAL_MATRIX",
+        entity: "LoanApprovalMatrixState",
+        entityId: id,
+        after: nextState,
+      });
+    }
+
+    await AuditService.record({
+      saccoId,
+      actorId,
+      action: "APPROVE_MATRIX_STEP",
+      entity: "LoanApprovalMatrixStep",
+      entityId: `${id}:${actorId}:${Date.now()}`,
+      after: {
+        loanId: id,
+        actorRole: actor.role,
+        approvalsCount: nextApprovals.length,
+        requiredApproverCount,
+        completed,
+      },
+    });
+
+    if (!completed) {
+      return {
+        ...existing,
+        status: "PENDING",
+        approvalMatrix: {
+          requiredApproverCount,
+          approvalsCount: nextApprovals.length,
+          requiredRoleGroups,
+          completed: false,
+          slaDueAtIso: nextState.slaDueAtIso,
+        },
+      };
+    }
+
     const loan = await prisma.loan.update({
       where: { id },
       data: {
@@ -417,11 +600,7 @@ export const LoansService = {
       after: loan,
     });
 
-    const eligibility = await assessAutoScheduleEligibility({
-      saccoId,
-      memberId: loan.memberId,
-      principalAmount: loan.principalAmount,
-    });
+    const eligibility = assessment;
 
     if (eligibility.green) {
       const existingScheduleApproval = await prisma.auditLog.findFirst({
