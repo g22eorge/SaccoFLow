@@ -35,11 +35,13 @@ export const DashboardService = {
       repayment30,
       audit24h,
       pendingApprovals,
+      pendingLoanRequests,
       recentAudits,
       recentSavings,
       recentRepayments,
       totalShareCapital,
       pendingDisbursementAgg,
+      memberRequestLogs,
     ] = await Promise.all([
       SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
@@ -87,6 +89,9 @@ export const DashboardService = {
       prisma.loan.count({
         where: { saccoId, status: { in: ["PENDING", "APPROVED"] } },
       }),
+      prisma.loan.count({
+        where: { saccoId, status: "PENDING" },
+      }),
       prisma.auditLog.findMany({
         where: { saccoId },
         include: {
@@ -131,7 +136,29 @@ export const DashboardService = {
         where: { saccoId, status: "APPROVED" },
         _sum: { principalAmount: true },
       }),
+      prisma.auditLog.findMany({
+        where: {
+          saccoId,
+          entity: "MemberRequest",
+        },
+        select: {
+          afterJson: true,
+        },
+      }),
     ]);
+
+    const pendingMemberRequests = memberRequestLogs.reduce((count, log) => {
+      if (!log.afterJson) {
+        return count;
+      }
+
+      try {
+        const payload = JSON.parse(log.afterJson) as { status?: unknown };
+        return payload.status === "PENDING" ? count + 1 : count;
+      } catch {
+        return count;
+      }
+    }, 0);
 
     const statusMap = new Map(
       loanStatusBuckets.map((bucket) => [bucket.status, bucket._count._all]),
@@ -197,6 +224,8 @@ export const DashboardService = {
         loansOpen: openLoans,
         loansCleared: clearedLoans,
         pendingApprovals,
+        pendingLoanRequests,
+        pendingMemberRequests,
         outstandingPrincipal: toCurrencyString(
           outstandingAgg._sum.outstandingPrincipal,
         ),

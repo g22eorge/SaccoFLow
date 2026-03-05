@@ -8,8 +8,11 @@ datasource db {
 }
 
 enum Role {
+  PLATFORM_SUPER_ADMIN
   SUPER_ADMIN
   SACCO_ADMIN
+  CHAIRPERSON
+  BOARD_MEMBER
   TREASURER
   LOAN_OFFICER
   AUDITOR
@@ -42,6 +45,7 @@ model Sacco {
   appUsers    AppUser[]
   savingsTxns SavingsTransaction[]
   loans       Loan[]
+  loanProducts LoanProduct[]
   repayments  LoanRepayment[]
   ledger      LedgerEntry[]
   auditLogs   AuditLog[]
@@ -103,6 +107,7 @@ model Loan {
   id                   String          @id @default(cuid())
   saccoId              String
   memberId             String
+  loanProductId        String?
   termMonths           Int             @default(1)
   dueAt                DateTime?
   principalAmount      Decimal
@@ -117,10 +122,35 @@ model Loan {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   member               Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  loanProduct          LoanProduct?    @relation(fields: [loanProductId], references: [id], onDelete: SetNull)
   sacco                Sacco           @relation(fields: [saccoId], references: [id], onDelete: Cascade)
   repayments           LoanRepayment[]
 
   @@index([saccoId, memberId, status])
+  @@index([loanProductId])
+}
+
+model LoanProduct {
+  id                 String   @id @default(cuid())
+  saccoId            String
+  name               String
+  minPrincipal       Decimal
+  maxPrincipal       Decimal
+  minTermMonths      Int
+  maxTermMonths      Int
+  repaymentFrequency String   @default("MONTHLY")
+  requireGuarantor   Boolean  @default(false)
+  requireCollateral  Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  sacco              Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  loans              Loan[]
+
+  @@index([saccoId, isActive])
+  @@index([saccoId, isDefault])
+  @@unique([saccoId, name])
 }
 
 model LoanRepayment {

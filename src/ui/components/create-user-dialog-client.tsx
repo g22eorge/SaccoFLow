@@ -1,18 +1,12 @@
 "use client";
 
 import { CreateUserDialog } from "@/src/ui/components/create-user-dialog";
-
-type AssignableRole =
-  | "SACCO_ADMIN"
-  | "TREASURER"
-  | "LOAN_OFFICER"
-  | "AUDITOR"
-  | "MEMBER";
+import { type SaccoRole } from "@/src/lib/roles";
 
 export function CreateUserDialogClient({
   allowedRoles,
 }: {
-  allowedRoles: AssignableRole[];
+  allowedRoles: SaccoRole[];
 }) {
   return <CreateUserDialog allowedRoles={allowedRoles} />;
 }

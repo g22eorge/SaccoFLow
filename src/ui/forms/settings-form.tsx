@@ -23,6 +23,7 @@ const sectionGroups = {
     "overdueScope",
     "earlyRepayment",
     "approvalWorkflow",
+    "autoDecision",
   ],
   capital: ["savings", "incomeCharges"],
   governance: ["saccoProfile", "notifications"],
@@ -73,6 +74,111 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const applyAutoDecisionPreset = (
+    preset: "conservative" | "balanced" | "aggressive",
+  ) => {
+    setSettings((previous) => {
+      const next = structuredClone(previous) as AppSettings;
+      const base = next.autoDecision;
+
+      if (preset === "conservative") {
+        next.autoDecision = {
+          ...base,
+          enableGreenAutoScheduleApproval: true,
+          enableDelinquencyEarlyWarnings: true,
+          greenMinScore: 85,
+          savingsSecurityPercent: 60,
+          sharesSecurityPercent: 70,
+          creditCapacityMultiplier: 2,
+          creditCapacityBaseBuffer: 100000,
+          minSavingsDepositCount: 2,
+          minLoanLifecycleCount: 1,
+          minRepaymentCount: 6,
+          requireAnyClearedLoan: true,
+          maxAllowedOverdueOpenLoans: 0,
+          defaultPenaltyPoints: 35,
+          overduePenaltyPoints: 15,
+          thinHistoryPenaltyPoints: 15,
+          noClearedPenaltyPoints: 12,
+          utilizationWarningThreshold: 0.7,
+          utilizationHardStopThreshold: 0.95,
+          utilizationWarningPenaltyPoints: 12,
+          utilizationHardStopPenaltyPoints: 30,
+          earlyWarningWatchDays: 45,
+          earlyWarningEscalationDays: 21,
+          earlyWarningNoRepaymentDays: 21,
+          earlyWarningHighOutstandingRatio: 0.75,
+          earlyWarningMaxCases: 12,
+        };
+      } else if (preset === "aggressive") {
+        next.autoDecision = {
+          ...base,
+          enableGreenAutoScheduleApproval: true,
+          enableDelinquencyEarlyWarnings: true,
+          greenMinScore: 70,
+          savingsSecurityPercent: 80,
+          sharesSecurityPercent: 90,
+          creditCapacityMultiplier: 3,
+          creditCapacityBaseBuffer: 250000,
+          minSavingsDepositCount: 1,
+          minLoanLifecycleCount: 1,
+          minRepaymentCount: 3,
+          requireAnyClearedLoan: false,
+          maxAllowedOverdueOpenLoans: 1,
+          defaultPenaltyPoints: 25,
+          overduePenaltyPoints: 10,
+          thinHistoryPenaltyPoints: 8,
+          noClearedPenaltyPoints: 8,
+          utilizationWarningThreshold: 0.85,
+          utilizationHardStopThreshold: 1.1,
+          utilizationWarningPenaltyPoints: 8,
+          utilizationHardStopPenaltyPoints: 20,
+          earlyWarningWatchDays: 21,
+          earlyWarningEscalationDays: 10,
+          earlyWarningNoRepaymentDays: 35,
+          earlyWarningHighOutstandingRatio: 0.85,
+          earlyWarningMaxCases: 6,
+        };
+      } else {
+        next.autoDecision = {
+          ...base,
+          enableGreenAutoScheduleApproval: true,
+          enableDelinquencyEarlyWarnings: true,
+          greenMinScore: 78,
+          savingsSecurityPercent: 70,
+          sharesSecurityPercent: 80,
+          creditCapacityMultiplier: 2.5,
+          creditCapacityBaseBuffer: 150000,
+          minSavingsDepositCount: 1,
+          minLoanLifecycleCount: 1,
+          minRepaymentCount: 4,
+          requireAnyClearedLoan: true,
+          maxAllowedOverdueOpenLoans: 0,
+          defaultPenaltyPoints: 30,
+          overduePenaltyPoints: 12,
+          thinHistoryPenaltyPoints: 12,
+          noClearedPenaltyPoints: 10,
+          utilizationWarningThreshold: 0.75,
+          utilizationHardStopThreshold: 1,
+          utilizationWarningPenaltyPoints: 10,
+          utilizationHardStopPenaltyPoints: 25,
+          earlyWarningWatchDays: 30,
+          earlyWarningEscalationDays: 14,
+          earlyWarningNoRepaymentDays: 30,
+          earlyWarningHighOutstandingRatio: 0.8,
+          earlyWarningMaxCases: 8,
+        };
+      }
+
+      return next;
+    });
+
+    setMessage(
+      `Applied ${preset} preset. Review and save settings to publish policy changes.`,
+    );
+    setError(null);
+  };
+
   const streamlinedSections = useMemo(
     () =>
       settingsSections.filter((section) =>
@@ -87,6 +193,7 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
           "savings",
           "incomeCharges",
           "approvalWorkflow",
+          "autoDecision",
           "notifications",
         ].includes(section.key),
       ),
@@ -297,6 +404,34 @@ export function SettingsForm({ initialSettings, canEdit }: SettingsFormProps) {
               {section.title.replace(/^\d+\.\s*/, "")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
+            {section.key === "autoDecision" ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => applyAutoDecisionPreset("conservative")}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs disabled:opacity-60"
+                >
+                  Conservative
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => applyAutoDecisionPreset("balanced")}
+                  className="rounded-lg border border-[#cc5500] bg-orange-50 px-3 py-1.5 text-xs text-[#cc5500] disabled:opacity-60"
+                >
+                  Balanced
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => applyAutoDecisionPreset("aggressive")}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs disabled:opacity-60"
+                >
+                  Aggressive
+                </button>
+              </div>
+            ) : null}
             {section.key === "incomeCharges" ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {incomeChargeRows.map(([leftKey, rightKey]) => {

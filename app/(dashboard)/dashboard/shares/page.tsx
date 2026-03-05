@@ -6,6 +6,7 @@ import { SharesTransactionsPanel } from "@/src/ui/components/shares-transactions
 import { formatMoney } from "@/src/lib/money";
 import { SiteHeader } from "@/components/site-header";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 const signalTone = (status: "Strong" | "Watch" | "Critical") =>
   status === "Strong"
@@ -19,7 +20,12 @@ export default async function SharesPage({
 }: {
   searchParams?: { page?: string };
 }) {
-  const { saccoId } = await requireSaccoContext();
+  const { saccoId, role } = await requireSaccoContext();
+  if (
+    !["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
+  ) {
+    redirect("/dashboard");
+  }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const members = await MembersService.list({ saccoId, page: 1 });
   const [shareBalances, shareCapitalTotal, transactions] = await Promise.all([
@@ -209,16 +215,34 @@ export default async function SharesPage({
             <div className="px-4 lg:px-6">
               <section className="space-y-6">
                 <div className="rounded-lg border bg-card p-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
-                    Capital Ledger
-                  </p>
-                  <h1 className="mt-2 text-2xl font-bold">Shares</h1>
-                  <p className="mt-2 text-muted-foreground">
-                    Track share capital growth, redemptions, and member equity activity.
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Updated {new Date().toLocaleString()} | Page {page}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                        Capital Ledger
+                      </p>
+                      <h1 className="mt-2 text-2xl font-bold">Shares</h1>
+                      <p className="mt-2 text-muted-foreground">
+                        Track share capital growth, redemptions, and member equity activity.
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Updated {new Date().toLocaleString()} | Page {page}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/api/shares/export?format=csv&page=${page}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export CSV
+                      </Link>
+                      <Link
+                        href={`/api/shares/export?format=pdf&page=${page}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export PDF
+                      </Link>
+                    </div>
+                  </div>
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">

@@ -7,6 +7,8 @@ export const createUserSchema = z.object({
   role: z.enum([
     "SUPER_ADMIN",
     "SACCO_ADMIN",
+    "CHAIRPERSON",
+    "BOARD_MEMBER",
     "TREASURER",
     "LOAN_OFFICER",
     "AUDITOR",
@@ -22,7 +24,16 @@ export const resetUserPasswordSchema = z.object({
 export const updateUserAccessSchema = z
   .object({
     role: z
-      .enum(["SUPER_ADMIN", "SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"])
+      .enum([
+        "SUPER_ADMIN",
+        "SACCO_ADMIN",
+        "CHAIRPERSON",
+        "BOARD_MEMBER",
+        "TREASURER",
+        "LOAN_OFFICER",
+        "AUDITOR",
+        "MEMBER",
+      ])
       .optional(),
     isActive: z.boolean().optional(),
   })

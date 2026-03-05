@@ -3,6 +3,7 @@ import { z } from "zod";
 export const loanApplicationSchema = z.object({
   saccoId: z.string().min(1),
   memberId: z.string().min(1),
+  loanProductId: z.string().min(1).optional(),
   principalAmount: z.coerce.number().positive(),
   termMonths: z.coerce.number().int().positive().optional(),
 });

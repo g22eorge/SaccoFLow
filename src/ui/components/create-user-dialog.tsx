@@ -5,9 +5,10 @@ import { IconX } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
 import { CreateUserForm } from "@/src/ui/forms/create-user-form"
+import { type SaccoRole } from "@/src/lib/roles"
 
 type CreateUserDialogProps = {
-  allowedRoles: Array<"SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER">
+  allowedRoles: SaccoRole[]
 }
 
 export function CreateUserDialog({ allowedRoles }: CreateUserDialogProps) {

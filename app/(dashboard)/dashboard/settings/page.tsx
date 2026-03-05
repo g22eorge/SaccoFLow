@@ -7,12 +7,14 @@ import { SiteHeader } from "@/components/site-header";
 const VIEW_ROLES = [
   "SACCO_ADMIN",
   "SUPER_ADMIN",
+  "CHAIRPERSON",
+  "BOARD_MEMBER",
   "TREASURER",
   "AUDITOR",
   "LOAN_OFFICER",
 ];
 
-const EDIT_ROLES = ["SACCO_ADMIN", "SUPER_ADMIN"];
+const EDIT_ROLES = ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"];
 
 export default async function SettingsPage() {
   const { saccoId, role } = await requireSaccoContext();

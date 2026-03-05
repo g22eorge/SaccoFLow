@@ -95,6 +95,33 @@ export const settingsSchema = z.object({
     savingsWithdrawalThreshold: z.number().nonnegative(),
     requiredApproverCount: z.number().int().positive(),
   }),
+  autoDecision: z.object({
+    enableGreenAutoScheduleApproval: z.boolean(),
+    enableDelinquencyEarlyWarnings: z.boolean(),
+    greenMinScore: z.number().min(0).max(100),
+    savingsSecurityPercent: z.number().min(0).max(100),
+    sharesSecurityPercent: z.number().min(0).max(100),
+    creditCapacityMultiplier: z.number().positive(),
+    creditCapacityBaseBuffer: z.number().nonnegative(),
+    minSavingsDepositCount: z.number().int().nonnegative(),
+    minLoanLifecycleCount: z.number().int().nonnegative(),
+    minRepaymentCount: z.number().int().nonnegative(),
+    requireAnyClearedLoan: z.boolean(),
+    maxAllowedOverdueOpenLoans: z.number().int().nonnegative(),
+    defaultPenaltyPoints: z.number().nonnegative(),
+    overduePenaltyPoints: z.number().nonnegative(),
+    thinHistoryPenaltyPoints: z.number().nonnegative(),
+    noClearedPenaltyPoints: z.number().nonnegative(),
+    utilizationWarningThreshold: z.number().nonnegative(),
+    utilizationHardStopThreshold: z.number().nonnegative(),
+    utilizationWarningPenaltyPoints: z.number().nonnegative(),
+    utilizationHardStopPenaltyPoints: z.number().nonnegative(),
+    earlyWarningWatchDays: z.number().int().positive(),
+    earlyWarningEscalationDays: z.number().int().positive(),
+    earlyWarningNoRepaymentDays: z.number().int().positive(),
+    earlyWarningHighOutstandingRatio: z.number().nonnegative(),
+    earlyWarningMaxCases: z.number().int().positive(),
+  }),
   userRbac: z.object({
     sessionTimeoutMinutes: z.number().int().positive(),
     passwordMinLength: z.number().int().min(8),
@@ -250,6 +277,33 @@ export const defaultSettings: AppSettings = {
     disbursementApprovalThreshold: 1000000,
     savingsWithdrawalThreshold: 300000,
     requiredApproverCount: 2,
+  },
+  autoDecision: {
+    enableGreenAutoScheduleApproval: true,
+    enableDelinquencyEarlyWarnings: true,
+    greenMinScore: 78,
+    savingsSecurityPercent: 70,
+    sharesSecurityPercent: 80,
+    creditCapacityMultiplier: 2.5,
+    creditCapacityBaseBuffer: 150000,
+    minSavingsDepositCount: 1,
+    minLoanLifecycleCount: 1,
+    minRepaymentCount: 4,
+    requireAnyClearedLoan: true,
+    maxAllowedOverdueOpenLoans: 0,
+    defaultPenaltyPoints: 30,
+    overduePenaltyPoints: 12,
+    thinHistoryPenaltyPoints: 12,
+    noClearedPenaltyPoints: 10,
+    utilizationWarningThreshold: 0.75,
+    utilizationHardStopThreshold: 1,
+    utilizationWarningPenaltyPoints: 10,
+    utilizationHardStopPenaltyPoints: 25,
+    earlyWarningWatchDays: 30,
+    earlyWarningEscalationDays: 14,
+    earlyWarningNoRepaymentDays: 30,
+    earlyWarningHighOutstandingRatio: 0.8,
+    earlyWarningMaxCases: 8,
   },
   userRbac: {
     sessionTimeoutMinutes: 60,
@@ -598,7 +652,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "approvalWorkflow",
-    title: "9. Approval Workflow",
+    title: "10. Approval Workflow",
     description: "Maker-checker and threshold approvals.",
     fields: [
       { key: "makerCheckerEnabled", label: "Enable maker-checker", type: "boolean" },
@@ -617,8 +671,124 @@ export const settingsSections: SettingsSection[] = [
     ],
   },
   {
+    key: "autoDecision",
+    title: "11. Auto Decisions",
+    description: "Scoring and green-path automation for schedule approvals.",
+    fields: [
+      {
+        key: "enableGreenAutoScheduleApproval",
+        label: "Enable green auto schedule approval",
+        type: "boolean",
+      },
+      {
+        key: "enableDelinquencyEarlyWarnings",
+        label: "Enable delinquency early warnings",
+        type: "boolean",
+      },
+      { key: "greenMinScore", label: "Green minimum score", type: "number" },
+      {
+        key: "creditCapacityMultiplier",
+        label: "Credit capacity multiplier",
+        type: "number",
+      },
+      {
+        key: "savingsSecurityPercent",
+        label: "Savings considered (%)",
+        type: "number",
+      },
+      {
+        key: "sharesSecurityPercent",
+        label: "Shares considered (%)",
+        type: "number",
+      },
+      {
+        key: "creditCapacityBaseBuffer",
+        label: "Credit base buffer",
+        type: "number",
+      },
+      {
+        key: "minSavingsDepositCount",
+        label: "Minimum savings deposit count",
+        type: "number",
+      },
+      {
+        key: "minLoanLifecycleCount",
+        label: "Minimum lending activity count",
+        type: "number",
+      },
+      { key: "minRepaymentCount", label: "Minimum repayment count", type: "number" },
+      {
+        key: "requireAnyClearedLoan",
+        label: "Require at least one cleared loan",
+        type: "boolean",
+      },
+      {
+        key: "maxAllowedOverdueOpenLoans",
+        label: "Max allowed overdue open loans",
+        type: "number",
+      },
+      { key: "defaultPenaltyPoints", label: "Default penalty points", type: "number" },
+      { key: "overduePenaltyPoints", label: "Overdue penalty points", type: "number" },
+      {
+        key: "thinHistoryPenaltyPoints",
+        label: "Thin history penalty points",
+        type: "number",
+      },
+      {
+        key: "noClearedPenaltyPoints",
+        label: "No cleared-loan penalty points",
+        type: "number",
+      },
+      {
+        key: "utilizationWarningThreshold",
+        label: "Utilization warning threshold",
+        type: "number",
+      },
+      {
+        key: "utilizationHardStopThreshold",
+        label: "Utilization hard-stop threshold",
+        type: "number",
+      },
+      {
+        key: "utilizationWarningPenaltyPoints",
+        label: "Utilization warning penalty",
+        type: "number",
+      },
+      {
+        key: "utilizationHardStopPenaltyPoints",
+        label: "Utilization hard-stop penalty",
+        type: "number",
+      },
+      {
+        key: "earlyWarningWatchDays",
+        label: "Early warning watch days",
+        type: "number",
+      },
+      {
+        key: "earlyWarningEscalationDays",
+        label: "Early warning escalation days",
+        type: "number",
+      },
+      {
+        key: "earlyWarningNoRepaymentDays",
+        label: "No-repayment risk days",
+        type: "number",
+      },
+      {
+        key: "earlyWarningHighOutstandingRatio",
+        label: "High outstanding ratio threshold",
+        type: "number",
+      },
+      {
+        key: "earlyWarningMaxCases",
+        label: "Max warning cases shown",
+        type: "number",
+      },
+    ],
+  },
+  {
     key: "userRbac",
-    title: "10. User & RBAC",
+    title: "12. User & RBAC",
     description: "Session, password, and access policy settings.",
     fields: [
       { key: "sessionTimeoutMinutes", label: "Session timeout (minutes)", type: "number" },
@@ -630,7 +800,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "notifications",
-    title: "11. Notifications",
+    title: "13. Notifications",
     description: "Outbound reminders and escalation contacts.",
     fields: [
       { key: "smsEnabled", label: "Enable SMS", type: "boolean" },
@@ -647,7 +817,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "auditSecurity",
-    title: "12. Audit & Security",
+    title: "14. Audit & Security",
     description: "Security hardening and log retention policies.",
     fields: [
       { key: "auditRetentionDays", label: "Audit retention (days)", type: "number" },
@@ -659,7 +829,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "accountingLedger",
-    title: "13. Accounting & Ledger",
+    title: "15. Accounting & Ledger",
     description: "Posting mappings and lock-period controls.",
     fields: [
       { key: "autoPostingEnabled", label: "Auto-posting enabled", type: "boolean" },
@@ -671,7 +841,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "reportsExport",
-    title: "14. Reports & Export",
+    title: "16. Reports & Export",
     description: "Default report periods and export controls.",
     fields: [
       {
@@ -692,7 +862,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "dataIntegrity",
-    title: "15. Data Integrity",
+    title: "17. Data Integrity",
     description: "Backup cadence and validation strictness.",
     fields: [
       { key: "backupFrequencyHours", label: "Backup frequency (hours)", type: "number" },
@@ -712,7 +882,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "compliance",
-    title: "16. Compliance",
+    title: "18. Compliance",
     description: "KYC, AML, and borrower compliance controls.",
     fields: [
       { key: "kycRequired", label: "KYC required", type: "boolean" },
@@ -724,7 +894,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "featureFlags",
-    title: "17. System Defaults & Feature Flags",
+    title: "19. System Defaults & Feature Flags",
     description: "Module flags and rollout controls.",
     fields: [
       { key: "enableMemberPortal", label: "Enable member portal", type: "boolean" },

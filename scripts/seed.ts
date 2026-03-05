@@ -26,6 +26,16 @@ async function main() {
 
   const roleSeeds = [
     {
+      authUserId: "seed-chairperson-auth-id",
+      email: "chairperson@example.com",
+      role: Role.CHAIRPERSON,
+    },
+    {
+      authUserId: "seed-board-member-auth-id",
+      email: "boardmember@example.com",
+      role: Role.BOARD_MEMBER,
+    },
+    {
       authUserId: "seed-treasurer-auth-id",
       email: "treasurer@example.com",
       role: Role.TREASURER,

@@ -8,6 +8,8 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   await requireRoles([
     "SACCO_ADMIN",
     "SUPER_ADMIN",
+    "CHAIRPERSON",
+    "BOARD_MEMBER",
     "TREASURER",
     "AUDITOR",
     "LOAN_OFFICER",

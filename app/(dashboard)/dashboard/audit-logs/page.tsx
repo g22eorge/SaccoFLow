@@ -8,6 +8,8 @@ import Link from "next/link";
 const VIEW_ROLES = [
   "SACCO_ADMIN",
   "SUPER_ADMIN",
+  "CHAIRPERSON",
+  "BOARD_MEMBER",
   "TREASURER",
   "AUDITOR",
   "LOAN_OFFICER",

@@ -1,11 +1,15 @@
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { LoansService } from "@/src/server/services/loans.service";
+import { LoanProductsService } from "@/src/server/services/loan-products.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { SharesService } from "@/src/server/services/shares.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 import { LoanManagement } from "@/src/ui/forms/loan-management";
 import { SiteHeader } from "@/components/site-header";
 import { formatMoney } from "@/src/lib/money";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { prisma } from "@/src/server/db/prisma";
 
 const signalTone = (status: "Strong" | "Watch" | "Critical") =>
   status === "Strong"
@@ -15,19 +19,117 @@ const signalTone = (status: "Strong" | "Watch" | "Critical") =>
       : "text-red-700 bg-red-50";
 
 const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const detectAutoDecisionPolicy = (auto: {
+  greenMinScore: number;
+  creditCapacityMultiplier: number;
+  minRepaymentCount: number;
+  requireAnyClearedLoan: boolean;
+  earlyWarningWatchDays: number;
+}) => {
+  if (
+    auto.greenMinScore === 78 &&
+    auto.creditCapacityMultiplier === 2.5 &&
+    auto.minRepaymentCount === 4 &&
+    auto.requireAnyClearedLoan === true &&
+    auto.earlyWarningWatchDays === 30
+  ) {
+    return "Balanced";
+  }
+
+  if (
+    auto.greenMinScore === 85 &&
+    auto.creditCapacityMultiplier === 2 &&
+    auto.minRepaymentCount === 6 &&
+    auto.requireAnyClearedLoan === true &&
+    auto.earlyWarningWatchDays === 45
+  ) {
+    return "Conservative";
+  }
+
+  if (
+    auto.greenMinScore === 70 &&
+    auto.creditCapacityMultiplier === 3 &&
+    auto.minRepaymentCount === 3 &&
+    auto.requireAnyClearedLoan === false &&
+    auto.earlyWarningWatchDays === 21
+  ) {
+    return "Aggressive";
+  }
+
+  return "Custom";
+};
 
 export default async function LoansPage({
   searchParams,
 }: {
   searchParams?: { status?: string; page?: string };
 }) {
-  const { saccoId } = await requireSaccoContext();
+  const { saccoId, role } = await requireSaccoContext();
+  if (
+    !["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
+  ) {
+    redirect("/dashboard");
+  }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const status = searchParams?.status;
-  const [members, loans] = await Promise.all([
+  const [members, loans, loanProducts, settings] = await Promise.all([
     MembersService.list({ saccoId, page: 1 }),
     LoansService.list({ saccoId, status, page }),
+    LoanProductsService.list(saccoId),
+    SettingsService.get(saccoId),
   ]);
+  const scheduleApprovals = await prisma.auditLog.findMany({
+    where: {
+      saccoId,
+      entity: "LoanScheduleApproval",
+    },
+    select: {
+      entityId: true,
+      action: true,
+      afterJson: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const scheduleApprovalMetaByLoanId = new Map<
+    string,
+    {
+      approved: boolean;
+      autoApproved: boolean;
+      reasonCodes: string[];
+      score: number | null;
+      riskTier: string | null;
+    }
+  >();
+  for (const entry of scheduleApprovals) {
+    const loanId = entry.entityId.split(":")[0];
+    if (scheduleApprovalMetaByLoanId.has(loanId)) {
+      continue;
+    }
+    let after: {
+      approvalMode?: string;
+      assessment?: { reasonCodes?: string[]; score?: number; riskTier?: string };
+    } | null = null;
+    if (entry.afterJson) {
+      try {
+        after = JSON.parse(entry.afterJson) as {
+          approvalMode?: string;
+          assessment?: { reasonCodes?: string[]; score?: number; riskTier?: string };
+        };
+      } catch {
+        after = null;
+      }
+    }
+    scheduleApprovalMetaByLoanId.set(loanId, {
+      approved: true,
+      autoApproved: entry.action === "AUTO_APPROVE" || String(after?.approvalMode ?? "").startsWith("AUTO_"),
+      reasonCodes: Array.isArray(after?.assessment?.reasonCodes) ? after.assessment.reasonCodes : [],
+      score: typeof after?.assessment?.score === "number" ? after.assessment.score : null,
+      riskTier: typeof after?.assessment?.riskTier === "string" ? after.assessment.riskTier : null,
+    });
+  }
   const hasNextPage = loans.length === 30;
   const shareBalances = await Promise.all(
     members.map(async (member) => ({
@@ -50,6 +152,8 @@ export default async function LoansPage({
     id: loan.id,
     memberId: loan.memberId,
     memberName: memberMap.get(loan.memberId) ?? loan.memberId,
+    loanProductId: loan.loanProduct?.id ?? null,
+    loanProductName: loan.loanProduct?.name ?? "Unspecified product",
     status: loan.status,
     termMonths: loan.termMonths,
     dueAt: loan.dueAt?.toISOString() ?? null,
@@ -57,13 +161,53 @@ export default async function LoansPage({
     outstandingPrincipal: loan.outstandingPrincipal.toString(),
     outstandingInterest: loan.outstandingInterest.toString(),
     outstandingPenalty: loan.outstandingPenalty.toString(),
+    scheduleApprovedByMember: scheduleApprovalMetaByLoanId.has(loan.id),
+    scheduleAutoApproved: scheduleApprovalMetaByLoanId.get(loan.id)?.autoApproved ?? false,
+    scheduleApprovalScore: scheduleApprovalMetaByLoanId.get(loan.id)?.score ?? null,
+    scheduleApprovalRiskTier: scheduleApprovalMetaByLoanId.get(loan.id)?.riskTier ?? null,
+    scheduleApprovalReasons: scheduleApprovalMetaByLoanId.get(loan.id)?.reasonCodes ?? [],
   }));
+
+  const repaymentSummaries =
+    loanRows.length > 0
+      ? await prisma.loanRepayment.groupBy({
+          by: ["loanId"],
+          where: {
+            saccoId,
+            loanId: { in: loanRows.map((loan) => loan.id) },
+          },
+          _max: { paidAt: true },
+          _count: { _all: true },
+        })
+      : [];
+
+  const repaymentSummaryByLoanId = new Map(
+    repaymentSummaries.map((summary) => [
+      summary.loanId,
+      {
+        lastPaidAt: summary._max.paidAt,
+        repaymentCount: summary._count._all,
+      },
+    ]),
+  );
 
   const memberOptions = members.map((member) => ({
     id: member.id,
     fullName: member.fullName,
     memberNumber: member.memberNumber,
     shareBalance: shareBalanceMap.get(member.id) ?? "0",
+  }));
+
+  const loanProductOptions = loanProducts.map((product) => ({
+    id: product.id,
+    name: product.name,
+    minPrincipal: product.minPrincipal.toString(),
+    maxPrincipal: product.maxPrincipal.toString(),
+    minTermMonths: product.minTermMonths,
+    maxTermMonths: product.maxTermMonths,
+    repaymentFrequency: product.repaymentFrequency,
+    isActive: product.isActive,
+    isDefault: product.isDefault,
   }));
 
   const now = new Date();
@@ -109,6 +253,85 @@ export default async function LoansPage({
       toNumber(loan.outstandingPenalty),
     0,
   );
+
+  const earlyWarnings = activeLoans
+    .map((loan) => {
+      const dueAtTime = loan.dueAt ? new Date(loan.dueAt).getTime() : null;
+      const daysToDue =
+        dueAtTime === null ? null : Math.ceil((dueAtTime - now.getTime()) / DAY_MS);
+      const repaymentSummary = repaymentSummaryByLoanId.get(loan.id);
+      const lastPaidAtTime = repaymentSummary?.lastPaidAt
+        ? new Date(repaymentSummary.lastPaidAt).getTime()
+        : null;
+      const daysSinceLastRepayment =
+        lastPaidAtTime === null
+          ? null
+          : Math.floor((now.getTime() - lastPaidAtTime) / DAY_MS);
+
+      const outstandingExposure =
+        toNumber(loan.outstandingPrincipal) +
+        toNumber(loan.outstandingInterest) +
+        toNumber(loan.outstandingPenalty);
+      const principal = Math.max(1, toNumber(loan.principalAmount));
+      const outstandingRatio = outstandingExposure / principal;
+
+      let severity: "High" | "Medium" | "Watch" | null = null;
+      let reason = "";
+      let recommendation = "";
+      let priorityScore = 0;
+
+      if (daysToDue !== null && daysToDue < 0) {
+        severity = "High";
+        reason = `${Math.abs(daysToDue)} days overdue`;
+        recommendation = "Call member today and agree a recovery plan within 48 hours.";
+        priorityScore = 100 + Math.abs(daysToDue);
+      } else if (
+        (daysToDue !== null &&
+          daysToDue <= settings.autoDecision.earlyWarningEscalationDays &&
+          (daysSinceLastRepayment === null ||
+            daysSinceLastRepayment > settings.autoDecision.earlyWarningNoRepaymentDays)) ||
+        (daysToDue !== null &&
+          daysToDue <= settings.autoDecision.earlyWarningWatchDays &&
+          outstandingRatio >= settings.autoDecision.earlyWarningHighOutstandingRatio)
+      ) {
+        severity = "Medium";
+        reason =
+          daysSinceLastRepayment === null || daysSinceLastRepayment > 30
+            ? "No recent repayment activity"
+            : "High outstanding ratio near maturity";
+        recommendation = "Send reminder now and schedule follow-up within 3 days.";
+        priorityScore =
+          70 +
+          (daysToDue !== null
+            ? Math.max(0, settings.autoDecision.earlyWarningWatchDays - daysToDue)
+            : 0);
+      } else if (
+        daysToDue !== null &&
+        daysToDue <= settings.autoDecision.earlyWarningWatchDays
+      ) {
+        severity = "Watch";
+        reason = `Due in ${daysToDue} days`;
+        recommendation = "Push proactive reminder and monitor weekly until due date.";
+        priorityScore =
+          40 + Math.max(0, settings.autoDecision.earlyWarningWatchDays - daysToDue);
+      }
+
+      if (!severity) {
+        return null;
+      }
+
+      return {
+        loanId: loan.id,
+        memberName: loan.memberName,
+        severity,
+        reason,
+        recommendation,
+        priorityScore,
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    .sort((a, b) => b.priorityScore - a.priorityScore)
+    .slice(0, settings.autoDecision.earlyWarningMaxCases);
 
   const decisionSignals = [
     {
@@ -212,6 +435,8 @@ export default async function LoansPage({
       : null,
   ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
 
+  const policyLabel = detectAutoDecisionPolicy(settings.autoDecision);
+
   return (
     <>
       <SiteHeader title="Loans" />
@@ -221,16 +446,34 @@ export default async function LoansPage({
             <div className="px-4 lg:px-6">
               <section className="space-y-6">
                 <div className="rounded-lg border bg-card p-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
-                    Credit Desk
-                  </p>
-                  <h1 className="mt-2 text-2xl font-bold">Loans</h1>
-                  <p className="mt-2 text-muted-foreground">
-                    Process loan applications from submission to repayment.
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Updated {new Date().toLocaleString()} | Page {page}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                        Credit Desk
+                      </p>
+                      <h1 className="mt-2 text-2xl font-bold">Loans</h1>
+                      <p className="mt-2 text-muted-foreground">
+                        Process loan applications from submission to repayment.
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Updated {new Date().toLocaleString()} | Page {page}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/api/loans/export?format=csv&${new URLSearchParams({ ...(status ? { status } : {}), page: String(page) }).toString()}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export CSV
+                      </Link>
+                      <Link
+                        href={`/api/loans/export?format=pdf&${new URLSearchParams({ ...(status ? { status } : {}), page: String(page) }).toString()}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export PDF
+                      </Link>
+                    </div>
+                  </div>
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
@@ -386,7 +629,84 @@ export default async function LoansPage({
                   </section>
                 </div>
 
-                <LoanManagement members={memberOptions} loans={loanRows} />
+                <section className="rounded-lg border bg-card p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold">Credit Policy Snapshot</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Active automation and early-warning policy currently in use.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[#cc5500] bg-orange-50 px-3 py-1 text-xs font-semibold text-[#cc5500]">
+                      {policyLabel}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Green Min Score</p>
+                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.greenMinScore}</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Capacity Multiplier</p>
+                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.creditCapacityMultiplier}x</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Min Repayments</p>
+                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.minRepaymentCount}</p>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Warning Watch Window</p>
+                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.earlyWarningWatchDays} days</p>
+                    </article>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Change this under Settings → Lending → Auto Decisions presets.
+                  </p>
+                </section>
+
+                {settings.autoDecision.enableDelinquencyEarlyWarnings ? (
+                  <section className="rounded-lg border bg-card p-6">
+                  <h2 className="text-lg font-semibold">Delinquency Early Warnings</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Heuristic risk engine highlights accounts likely to slip before default.
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {earlyWarnings.length > 0 ? (
+                      earlyWarnings.map((warning) => (
+                        <article key={warning.loanId} className="rounded-md border bg-background px-4 py-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold">{warning.memberName}</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                warning.severity === "High"
+                                  ? "bg-red-50 text-red-700"
+                                  : warning.severity === "Medium"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-blue-50 text-blue-700"
+                              }`}
+                            >
+                              {warning.severity}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">Signal: {warning.reason}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Recommended action: {warning.recommendation}
+                          </p>
+                        </article>
+                      ))
+                    ) : (
+                      <article className="rounded-md border bg-background px-4 py-3">
+                        <p className="text-sm font-semibold text-emerald-700">No early warning flags right now.</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Active loans are currently within expected repayment trajectory.
+                        </p>
+                      </article>
+                    )}
+                  </div>
+                  </section>
+                ) : null}
+
+                <LoanManagement members={memberOptions} loans={loanRows} loanProducts={loanProductOptions} />
 
                 <section className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between">

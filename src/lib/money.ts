@@ -11,16 +11,21 @@ export const formatMoney = (
   }
 
   const normalized = raw.replaceAll(",", "");
-  const sign = normalized.startsWith("-") ? "-" : "";
-  const unsigned = sign ? normalized.slice(1) : normalized;
-  const [integerPart, fractionPart] = unsigned.split(".");
-
-  if (!/^\d+$/.test(integerPart)) {
+  if (!/^-?\d*(\.\d+)?$/.test(normalized) || normalized === "" || normalized === "-") {
     return raw;
   }
 
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return raw;
+  }
+
+  const rounded = Math.round(parsed * 100) / 100;
+  const sign = rounded < 0 ? "-" : "";
+  const [integerPart, fractionPart = "00"] = Math.abs(rounded)
+    .toFixed(2)
+    .split(".");
+
   const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return fractionPart !== undefined
-    ? `${sign}${withCommas}.${fractionPart}`
-    : `${sign}${withCommas}`;
+  return `${sign}${withCommas}.${fractionPart}`;
 };

@@ -3,6 +3,7 @@ import { DashboardService } from "@/src/server/services/dashboard.service";
 import { SiteHeader } from "@/components/site-header";
 import Link from "next/link";
 import { formatMoney } from "@/src/lib/money";
+import { redirect } from "next/navigation";
 
 const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
 
@@ -17,7 +18,24 @@ const signalTone = (status: "Strong" | "Watch" | "Critical") =>
       : "text-red-700 bg-red-50";
 
 export default async function Page() {
-  const { saccoId } = await requireSaccoContext();
+  const { saccoId, role } = await requireSaccoContext();
+  if (role === "MEMBER") {
+    redirect("/dashboard/member");
+  }
+  if (
+    ![
+      "SACCO_ADMIN",
+      "SUPER_ADMIN",
+      "CHAIRPERSON",
+      "BOARD_MEMBER",
+      "TREASURER",
+      "AUDITOR",
+      "LOAN_OFFICER",
+      "MEMBER",
+    ].includes(role)
+  ) {
+    redirect("/dashboard");
+  }
   const dashboard = await DashboardService.monitors(saccoId);
 
   const equity = toNumber(dashboard.kpis.totalShareCapital);
@@ -59,6 +77,8 @@ export default async function Page() {
   const outstandingPrincipal = toNumber(dashboard.kpis.outstandingPrincipal);
   const portfolioRiskPercent = Number(dashboard.monitors.portfolioRiskPercent);
   const pendingApprovals = Number(dashboard.kpis.pendingApprovals);
+  const pendingLoanRequests = Number(dashboard.kpis.pendingLoanRequests ?? 0);
+  const pendingMemberRequests = Number(dashboard.kpis.pendingMemberRequests ?? 0);
   const utilizationPercent =
     capitalCapacity > 0 ? (outstandingPrincipal / capitalCapacity) * 100 : 0;
 
@@ -150,6 +170,13 @@ export default async function Page() {
           title: "Protect cash in next 30 days",
           detail: `Net surplus is ${formatMoney(netSurplus30d)} and needs correction`,
           href: "/dashboard/settings",
+        }
+      : null,
+    pendingMemberRequests > 0
+      ? {
+          title: "Review member service requests",
+          detail: `${pendingMemberRequests} member requests are awaiting resolution`,
+          href: "/dashboard/member-requests",
         }
       : null,
   ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
@@ -340,6 +367,35 @@ export default async function Page() {
                     </div>
                   </section>
                 </div>
+
+                <section className="rounded-lg border bg-card p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold">Requests Watchlist</h2>
+                    <p className="text-xs text-muted-foreground">Time-sensitive member and loan decisions</p>
+                  </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Loan Requests</p>
+                      <p className="mt-1 text-2xl font-bold">{pendingLoanRequests}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Applications waiting for initial review.
+                      </p>
+                      <Link href="/dashboard/loans" className="mt-2 inline-block text-xs text-[#cc5500]">
+                        Open loan requests
+                      </Link>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Member Requests</p>
+                      <p className="mt-1 text-2xl font-bold">{pendingMemberRequests}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Withdrawals and share redemptions pending review.
+                      </p>
+                      <Link href="/dashboard/member-requests" className="mt-2 inline-block text-xs text-[#cc5500]">
+                        Open member requests
+                      </Link>
+                    </article>
+                  </div>
+                </section>
 
                 <section className="rounded-lg border bg-card p-6">
                   <h2 className="text-lg font-semibold">Priority Actions</h2>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
+import { ROLE_LEVELS, type SaccoRole } from "@/src/lib/roles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,22 +30,20 @@ type UserRow = {
   createdAt: Date
 }
 
-type AssignableRole = "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
-
 export function UsersTable({
   users,
   assignableRoles,
   manageableRoles,
 }: {
   users: UserRow[];
-  assignableRoles: AssignableRole[];
-  manageableRoles: AssignableRole[];
+  assignableRoles: SaccoRole[];
+  manageableRoles: SaccoRole[];
 }) {
   const router = useRouter();
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [activeEditor, setActiveEditor] = useState<"password" | "role" | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
-  const [roleDrafts, setRoleDrafts] = useState<Record<string, AssignableRole>>({});
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, SaccoRole>>({});
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +177,9 @@ export function UsersTable({
               <TableCell className="font-medium">{user.email}</TableCell>
               <TableCell>{user.fullName ?? "-"}</TableCell>
               <TableCell>
-                <Badge variant="outline">{user.role}</Badge>
+                <Badge variant="outline">
+                  {user.role} {user.role in ROLE_LEVELS ? `| L${ROLE_LEVELS[user.role as SaccoRole]}` : ""}
+                </Badge>
               </TableCell>
               <TableCell>
                 <Badge variant="outline">
@@ -189,7 +190,7 @@ export function UsersTable({
                 {formatDateTimeUtc(user.createdAt)}
               </TableCell>
               <TableCell>
-                {manageableRoles.includes(user.role as AssignableRole) ? (
+                {manageableRoles.includes(user.role as SaccoRole) ? (
                   <div className="space-y-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -248,13 +249,13 @@ export function UsersTable({
                     {activeUserId === user.id && activeEditor === "role" ? (
                       <div className="flex flex-wrap items-center gap-2">
                         <select
-                          value={(roleDrafts[user.id] ?? user.role) as AssignableRole}
-                          onChange={(event) =>
-                            setRoleDrafts((prev) => ({
-                              ...prev,
-                              [user.id]: event.target.value as AssignableRole,
-                            }))
-                          }
+                           value={(roleDrafts[user.id] ?? user.role) as SaccoRole}
+                           onChange={(event) =>
+                             setRoleDrafts((prev) => ({
+                               ...prev,
+                               [user.id]: event.target.value as SaccoRole,
+                             }))
+                           }
                           className="rounded-md border border-border bg-background px-2 py-1 text-xs"
                         >
                           {assignableRoles.map((roleOption) => (

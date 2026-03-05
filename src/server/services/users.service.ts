@@ -8,6 +8,22 @@ import {
 import { auth } from "@/src/server/auth/auth";
 import { AuditService } from "@/src/server/services/audit.service";
 import { MembersService } from "@/src/server/services/members.service";
+import { ASSIGNABLE_ROLES_BY_ACTOR } from "@/src/lib/roles";
+
+type ManageableRole =
+  | "SUPER_ADMIN"
+  | "SACCO_ADMIN"
+  | "CHAIRPERSON"
+  | "BOARD_MEMBER"
+  | "TREASURER"
+  | "LOAN_OFFICER"
+  | "AUDITOR"
+  | "MEMBER";
+
+const assignableRolesByActor = ASSIGNABLE_ROLES_BY_ACTOR as Record<
+  ManageableRole,
+  readonly ManageableRole[]
+>;
 
 export const UsersService = {
   async list(input: { saccoId: string; page: number }) {
@@ -135,7 +151,7 @@ export const UsersService = {
     payload: {
       saccoId: string;
       targetUserId: string;
-      actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+      actorRole: ManageableRole;
       actorId?: string;
       password?: string;
     },
@@ -157,15 +173,6 @@ export const UsersService = {
     if (!target) {
       throw new Error("User not found");
     }
-
-    const assignableRolesByActor = {
-      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      TREASURER: ["MEMBER"],
-      LOAN_OFFICER: ["MEMBER"],
-      AUDITOR: ["MEMBER"],
-      MEMBER: [],
-    } as const;
 
     const allowedRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
     if (!allowedRoles.includes(target.role)) {
@@ -224,9 +231,9 @@ export const UsersService = {
   async updateAccess(payload: {
     saccoId: string;
     targetUserId: string;
-    actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    actorRole: ManageableRole;
     actorId?: string;
-    role?: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    role?: ManageableRole;
     isActive?: boolean;
   }) {
     const parsed = updateUserAccessSchema.parse({
@@ -250,15 +257,6 @@ export const UsersService = {
     if (!target) {
       throw new Error("User not found");
     }
-
-    const assignableRolesByActor = {
-      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      TREASURER: ["MEMBER"],
-      LOAN_OFFICER: ["MEMBER"],
-      AUDITOR: ["MEMBER"],
-      MEMBER: [],
-    } as const;
 
     const manageableRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
     if (!manageableRoles.includes(target.role)) {
@@ -307,7 +305,7 @@ export const UsersService = {
   async revokeSessions(payload: {
     saccoId: string;
     targetUserId: string;
-    actorRole: "SUPER_ADMIN" | "SACCO_ADMIN" | "TREASURER" | "LOAN_OFFICER" | "AUDITOR" | "MEMBER";
+    actorRole: ManageableRole;
     actorId?: string;
   }) {
     const target = await prisma.appUser.findFirst({
@@ -326,15 +324,6 @@ export const UsersService = {
     if (!target) {
       throw new Error("User not found");
     }
-
-    const assignableRolesByActor = {
-      SUPER_ADMIN: ["SACCO_ADMIN", "TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      SACCO_ADMIN: ["TREASURER", "LOAN_OFFICER", "AUDITOR", "MEMBER"],
-      TREASURER: ["MEMBER"],
-      LOAN_OFFICER: ["MEMBER"],
-      AUDITOR: ["MEMBER"],
-      MEMBER: [],
-    } as const;
 
     const manageableRoles = (assignableRolesByActor[payload.actorRole] ?? []) as readonly string[];
     if (!manageableRoles.includes(target.role)) {

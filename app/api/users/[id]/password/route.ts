@@ -8,7 +8,7 @@ export const POST = withApiHandler(
     request: NextRequest,
     context: { params: Promise<{ id: string }> },
   ) => {
-    await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN"]);
+    await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"]);
     const { id: actorId, saccoId, role } = await requireSaccoContext();
     const { id } = await context.params;
     const body = await request.json();

@@ -11,10 +11,24 @@ type MemberOption = {
   shareBalance: string;
 };
 
+type LoanProductOption = {
+  id: string;
+  name: string;
+  minPrincipal: string;
+  maxPrincipal: string;
+  minTermMonths: number;
+  maxTermMonths: number;
+  repaymentFrequency: string;
+  isActive: boolean;
+  isDefault: boolean;
+};
+
 type LoanRow = {
   id: string;
   memberId: string;
   memberName: string;
+  loanProductId: string | null;
+  loanProductName: string;
   status: string;
   termMonths: number;
   dueAt: string | null;
@@ -22,6 +36,24 @@ type LoanRow = {
   outstandingPrincipal: string;
   outstandingInterest: string;
   outstandingPenalty: string;
+  scheduleApprovedByMember: boolean;
+  scheduleAutoApproved: boolean;
+  scheduleApprovalScore: number | null;
+  scheduleApprovalRiskTier: string | null;
+  scheduleApprovalReasons: string[];
+};
+
+const trustReasonLabel = (reason: string) => {
+  if (reason === "SAVINGS_ACTIVITY_TRUST_PENDING") {
+    return "Savings activity pending";
+  }
+  if (reason === "LENDING_ACTIVITY_TRUST_PENDING") {
+    return "Lending history pending";
+  }
+  if (reason === "LIMITED_REPAYMENT_HISTORY") {
+    return "Repayment history pending";
+  }
+  return reason.replaceAll("_", " ").toLowerCase();
 };
 
 const formatUtcDate = (value: string) => {
@@ -38,18 +70,30 @@ const formatUtcDate = (value: string) => {
 export function LoanManagement({
   members,
   loans,
+  loanProducts,
 }: {
   members: MemberOption[];
   loans: LoanRow[];
+  loanProducts: LoanProductOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [principalAmount, setPrincipalAmount] = useState("");
   const [termMonths, setTermMonths] = useState("1");
+  const [loanProductId, setLoanProductId] = useState(loanProducts[0]?.id ?? "");
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductMinPrincipal, setNewProductMinPrincipal] = useState("100000");
+  const [newProductMaxPrincipal, setNewProductMaxPrincipal] = useState("1000000");
+  const [newProductMinTerm, setNewProductMinTerm] = useState("3");
+  const [newProductMaxTerm, setNewProductMaxTerm] = useState("12");
+  const [newProductFrequency, setNewProductFrequency] = useState<"WEEKLY" | "BIWEEKLY" | "MONTHLY">("MONTHLY");
+  const [newProductDefault, setNewProductDefault] = useState(false);
   const [repayAmounts, setRepayAmounts] = useState<Record<string, string>>({});
   const [busyLoanId, setBusyLoanId] = useState<string | null>(null);
   const [loadingApply, setLoadingApply] = useState(false);
+  const [loadingCreateProduct, setLoadingCreateProduct] = useState(false);
+  const [loadingSeedStandardProducts, setLoadingSeedStandardProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -57,6 +101,9 @@ export function LoanManagement({
     "ALL" | "PENDING" | "APPROVED" | "DISBURSED" | "ACTIVE" | "DEFAULTED" | "CLEARED"
   >("ALL");
   const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">("dueSoon");
+
+  const selectedLoanProduct =
+    loanProducts.find((product) => product.id === loanProductId) ?? loanProducts[0] ?? null;
 
   useEffect(() => {
     const status = searchParams.get("status");
@@ -122,6 +169,7 @@ export function LoanManagement({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           memberId,
+          loanProductId,
           principalAmount: Number(principalAmount),
           termMonths: Number(termMonths),
         }),
@@ -141,6 +189,65 @@ export function LoanManagement({
       );
     } finally {
       setLoadingApply(false);
+    }
+  };
+
+  const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoadingCreateProduct(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/loan-products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: newProductName,
+          minPrincipal: Number(newProductMinPrincipal),
+          maxPrincipal: Number(newProductMaxPrincipal),
+          minTermMonths: Number(newProductMinTerm),
+          maxTermMonths: Number(newProductMaxTerm),
+          repaymentFrequency: newProductFrequency,
+          isActive: true,
+          isDefault: newProductDefault,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error?.message ?? "Failed to create loan product");
+      }
+
+      setMessage(`Loan product ${payload.data?.name ?? newProductName} created.`);
+      setNewProductName("");
+      setNewProductDefault(false);
+      router.refresh();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Unexpected error");
+    } finally {
+      setLoadingCreateProduct(false);
+    }
+  };
+
+  const handleSeedStandardProducts = async () => {
+    setLoadingSeedStandardProducts(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/loan-products/standard-catalog", {
+        method: "POST",
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error?.message ?? "Failed to seed standard products");
+      }
+      setMessage("Standard loan products are ready: Emergency, Development, and Business Expansion.");
+      router.refresh();
+    } catch (seedError) {
+      setError(seedError instanceof Error ? seedError.message : "Unexpected error");
+    } finally {
+      setLoadingSeedStandardProducts(false);
     }
   };
 
@@ -234,7 +341,25 @@ export function LoanManagement({
           Capture a loan request and push it through approval, disbursement, and
           repayment.
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <select
+            value={loanProductId}
+            onChange={(event) => {
+              const nextProductId = event.target.value;
+              setLoanProductId(nextProductId);
+              const picked = loanProducts.find((product) => product.id === nextProductId);
+              if (picked) {
+                setTermMonths(String(picked.minTermMonths));
+              }
+            }}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            {loanProducts.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} ({product.repaymentFrequency})
+              </option>
+            ))}
+          </select>
           <select
             value={memberId}
             onChange={(event) => setMemberId(event.target.value)}
@@ -267,12 +392,108 @@ export function LoanManagement({
             placeholder="Term (months)"
           />
         </div>
+        {selectedLoanProduct ? (
+          <p className="text-xs text-muted-foreground">
+            Product limits: {formatMoney(selectedLoanProduct.minPrincipal)} - {formatMoney(selectedLoanProduct.maxPrincipal)} | Term {selectedLoanProduct.minTermMonths}-{selectedLoanProduct.maxTermMonths} months
+          </p>
+        ) : null}
         <button
           type="submit"
           disabled={loadingApply}
           className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-60"
         >
           {loadingApply ? "Submitting..." : "Apply Loan"}
+        </button>
+      </form>
+
+      <form onSubmit={handleCreateProduct} className="space-y-4 rounded-lg border bg-card p-6">
+        <h2 className="text-lg font-semibold">Create Loan Product</h2>
+        <p className="text-sm text-muted-foreground">
+          Define additional loan products with separate limits and terms.
+        </p>
+        <button
+          type="button"
+          onClick={handleSeedStandardProducts}
+          disabled={loadingSeedStandardProducts}
+          className="rounded-lg border border-border px-3 py-2 text-sm"
+        >
+          {loadingSeedStandardProducts ? "Preparing..." : "Add Standard Product Pack"}
+        </button>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <input
+            type="text"
+            required
+            value={newProductName}
+            onChange={(event) => setNewProductName(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Product name"
+          />
+          <input
+            type="number"
+            required
+            min={0}
+            step="0.01"
+            value={newProductMinPrincipal}
+            onChange={(event) => setNewProductMinPrincipal(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Min principal"
+          />
+          <input
+            type="number"
+            required
+            min={0}
+            step="0.01"
+            value={newProductMaxPrincipal}
+            onChange={(event) => setNewProductMaxPrincipal(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Max principal"
+          />
+          <input
+            type="number"
+            required
+            min={1}
+            step={1}
+            value={newProductMinTerm}
+            onChange={(event) => setNewProductMinTerm(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Min term"
+          />
+          <input
+            type="number"
+            required
+            min={1}
+            step={1}
+            value={newProductMaxTerm}
+            onChange={(event) => setNewProductMaxTerm(event.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            placeholder="Max term"
+          />
+          <select
+            value={newProductFrequency}
+            onChange={(event) =>
+              setNewProductFrequency(event.target.value as "WEEKLY" | "BIWEEKLY" | "MONTHLY")
+            }
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="WEEKLY">Weekly</option>
+            <option value="BIWEEKLY">Bi-weekly</option>
+            <option value="MONTHLY">Monthly</option>
+          </select>
+          <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={newProductDefault}
+              onChange={(event) => setNewProductDefault(event.target.checked)}
+            />
+            Set as default product
+          </label>
+        </div>
+        <button
+          type="submit"
+          disabled={loadingCreateProduct}
+          className="rounded-lg border border-border px-3 py-2 text-sm"
+        >
+          {loadingCreateProduct ? "Creating..." : "Create Product"}
         </button>
       </form>
 
@@ -341,13 +562,42 @@ export function LoanManagement({
               key={loan.id}
               className="rounded-xl border border-border bg-background p-4"
             >
+              {(() => {
+                const trustPendingReasons = loan.scheduleApprovalReasons.filter((reason) =>
+                  [
+                    "SAVINGS_ACTIVITY_TRUST_PENDING",
+                    "LENDING_ACTIVITY_TRUST_PENDING",
+                    "LIMITED_REPAYMENT_HISTORY",
+                  ].includes(reason),
+                );
+
+                return trustPendingReasons.length > 0 ? (
+                  <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-800">Trust Pending</p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      {trustPendingReasons.map((reason) => trustReasonLabel(reason)).join(" | ")}
+                    </p>
+                  </div>
+                ) : null;
+              })()}
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{loan.memberName}</p>
-                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold">
-                  {loan.status}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold">
+                    {loan.status}
+                  </span>
+                  {loan.scheduleAutoApproved ? (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                      GREEN AUTO
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+                <p>
+                  Product:{" "}
+                  <span className="font-semibold text-foreground">{loan.loanProductName}</span>
+                </p>
                 <p>
                   Principal:{" "}
                   <span className="font-semibold text-foreground">
@@ -369,6 +619,23 @@ export function LoanManagement({
                     {loan.termMonths} months)
                   </span>
                 </p>
+                {loan.scheduleAutoApproved ? (
+                  <p>
+                    Auto score:{" "}
+                    <span className="font-semibold text-foreground">
+                      {loan.scheduleApprovalScore ?? "-"}
+                      {loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}
+                    </span>
+                  </p>
+                ) : null}
+                {loan.scheduleApprovalReasons.length > 0 ? (
+                  <p className="line-clamp-2">
+                    Reasons:{" "}
+                    <span className="font-semibold text-foreground">
+                      {loan.scheduleApprovalReasons.join(", ")}
+                    </span>
+                  </p>
+                ) : null}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {loan.status === "PENDING" ? (
@@ -382,14 +649,19 @@ export function LoanManagement({
                   </button>
                 ) : null}
                 {loan.status === "APPROVED" ? (
-                  <button
-                    type="button"
-                    disabled={busyLoanId === loan.id}
-                    onClick={() => callLoanAction(loan.id, "disburse")}
-                    className="rounded-lg border border-border px-2 py-1"
-                  >
-                    Disburse
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
+                      onClick={() => callLoanAction(loan.id, "disburse")}
+                      className="rounded-lg border border-border px-2 py-1"
+                    >
+                      Disburse
+                    </button>
+                    {!loan.scheduleApprovedByMember ? (
+                      <p className="text-xs text-amber-700">Waiting for member schedule approval</p>
+                    ) : null}
+                  </>
                 ) : null}
                 {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
                   <>

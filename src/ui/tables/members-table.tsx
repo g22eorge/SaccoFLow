@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { formatMoney } from "@/src/lib/money";
 
 type MemberRow = {
@@ -295,6 +296,12 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
                   </>
                 ) : (
                   <>
+                    <Link
+                      href={`/dashboard/members/${member.id}`}
+                      className="rounded-lg border border-border px-2 py-1"
+                    >
+                      Snapshot
+                    </Link>
                     <button
                       type="button"
                       onClick={() => startEdit(member)}

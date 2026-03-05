@@ -31,6 +31,8 @@ export default async function ReportsPage() {
     ![
       "SACCO_ADMIN",
       "SUPER_ADMIN",
+      "CHAIRPERSON",
+      "BOARD_MEMBER",
       "TREASURER",
       "AUDITOR",
       "LOAN_OFFICER",

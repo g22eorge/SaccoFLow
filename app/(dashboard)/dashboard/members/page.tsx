@@ -7,6 +7,7 @@ import { formatMoney } from "@/src/lib/money";
 import { SiteHeader } from "@/components/site-header";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 const signalTone = (status: "Strong" | "Watch" | "Critical") =>
   status === "Strong"
@@ -20,7 +21,12 @@ export default async function MembersPage({
 }: {
   searchParams?: { page?: string };
 }) {
-  const { saccoId } = await requireSaccoContext();
+  const { saccoId, role } = await requireSaccoContext();
+  if (
+    !["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
+  ) {
+    redirect("/dashboard");
+  }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
   const members = await MembersService.list({ saccoId, page });
   const hasNextPage = members.length === 20;
@@ -185,16 +191,34 @@ export default async function MembersPage({
             <div className="px-4 lg:px-6">
               <section className="space-y-6">
                 <div className="rounded-lg border bg-card p-6">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
-                    Directory
-                  </p>
-                  <h1 className="mt-2 text-2xl font-bold">Members</h1>
-                  <p className="mt-2 text-muted-foreground">
-                    Manage SACCO members and maintain their profiles.
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Updated {new Date().toLocaleString()} | Page {page}
-                  </p>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
+                        Directory
+                      </p>
+                      <h1 className="mt-2 text-2xl font-bold">Members</h1>
+                      <p className="mt-2 text-muted-foreground">
+                        Manage SACCO members and maintain their profiles.
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Updated {new Date().toLocaleString()} | Page {page}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/api/members/export?format=csv&page=${page}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export CSV
+                      </Link>
+                      <Link
+                        href={`/api/members/export?format=pdf&page=${page}`}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs"
+                      >
+                        Export PDF
+                      </Link>
+                    </div>
+                  </div>
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">

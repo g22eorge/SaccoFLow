@@ -7,6 +7,7 @@ import {
 import { LedgerService } from "@/src/server/services/ledger.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { LoanProductsService } from "@/src/server/services/loan-products.service";
 
 type AllocationTarget = "PENALTY" | "INTEREST" | "PRINCIPAL";
 
@@ -18,7 +19,7 @@ const addMonths = (date: Date, months: number) => {
   return next;
 };
 
-const decimal = (value: Prisma.Decimal | number | undefined) =>
+const decimal = (value: Prisma.Decimal | number | null | undefined) =>
   new Prisma.Decimal(value ?? 0);
 
 const minDecimal = (a: Prisma.Decimal, b: Prisma.Decimal) =>
@@ -35,6 +36,233 @@ const getInterestAmount = (
   }
 
   return principal.mul(annualRatePercent).div(100).mul(termMonths).div(12);
+};
+
+const toInstallmentRows = (loan: {
+  id: string;
+  appliedAt: Date;
+  termMonths: number;
+  principalAmount: Prisma.Decimal;
+  interestAmount: Prisma.Decimal;
+}) => {
+  const termMonths = Math.max(1, loan.termMonths);
+  const principalPerInstallment = loan.principalAmount.div(termMonths);
+  const interestPerInstallment = loan.interestAmount.div(termMonths);
+
+  return Array.from({ length: termMonths }, (_, index) => {
+    const installmentNumber = index + 1;
+    const dueAt = addMonths(loan.appliedAt, installmentNumber);
+    const principal = principalPerInstallment.toFixed(2);
+    const interest = interestPerInstallment.toFixed(2);
+    const total = principalPerInstallment.plus(interestPerInstallment).toFixed(2);
+
+    return {
+      installmentNumber,
+      dueAt: dueAt.toISOString(),
+      principal,
+      interest,
+      total,
+    };
+  });
+};
+
+const assessAutoScheduleEligibility = async (input: {
+  saccoId: string;
+  memberId: string;
+  principalAmount: Prisma.Decimal;
+}) => {
+  const settings = await SettingsService.get(input.saccoId);
+  const auto = settings.autoDecision;
+  const now = new Date();
+
+  const [loanStatusBuckets, overdueOpenCount, repaymentCount, loanLifecycleCount, savingsDepositCount, deposits, withdrawals, adjustments, sharePurchases, shareRedemptions, shareAdjustments] =
+    await Promise.all([
+      prisma.loan.groupBy({
+        by: ["status"],
+        where: { saccoId: input.saccoId, memberId: input.memberId },
+        _count: { _all: true },
+      }),
+      prisma.loan.count({
+        where: {
+          saccoId: input.saccoId,
+          memberId: input.memberId,
+          status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+          dueAt: { lt: now },
+        },
+      }),
+      prisma.loanRepayment.count({
+        where: {
+          saccoId: input.saccoId,
+          memberId: input.memberId,
+        },
+      }),
+      prisma.loan.count({
+        where: {
+          saccoId: input.saccoId,
+          memberId: input.memberId,
+          status: { in: ["DISBURSED", "ACTIVE", "CLEARED", "DEFAULTED"] },
+        },
+      }),
+      prisma.savingsTransaction.count({
+        where: {
+          saccoId: input.saccoId,
+          memberId: input.memberId,
+          type: "DEPOSIT",
+        },
+      }),
+      prisma.savingsTransaction.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, type: "DEPOSIT" },
+        _sum: { amount: true },
+      }),
+      prisma.savingsTransaction.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, type: "WITHDRAWAL" },
+        _sum: { amount: true },
+      }),
+      prisma.savingsTransaction.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, type: "ADJUSTMENT" },
+        _sum: { amount: true },
+      }),
+      prisma.ledgerEntry.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, eventType: "SHARE_PURCHASE" },
+        _sum: { amount: true },
+      }),
+      prisma.ledgerEntry.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, eventType: "SHARE_REDEMPTION" },
+        _sum: { amount: true },
+      }),
+      prisma.ledgerEntry.aggregate({
+        where: { saccoId: input.saccoId, memberId: input.memberId, eventType: "SHARE_ADJUSTMENT" },
+        _sum: { amount: true },
+      }),
+    ]);
+
+  const statusMap = new Map(
+    loanStatusBuckets.map((bucket) => [bucket.status, bucket._count._all]),
+  );
+  const defaultedCount = statusMap.get("DEFAULTED") ?? 0;
+  const clearedCount = statusMap.get("CLEARED") ?? 0;
+
+  const savingsBalance = decimal(deposits._sum.amount)
+    .minus(decimal(withdrawals._sum.amount))
+    .plus(decimal(adjustments._sum.amount));
+  const shareBalance = decimal(sharePurchases._sum.amount)
+    .minus(decimal(shareRedemptions._sum.amount))
+    .plus(decimal(shareAdjustments._sum.amount));
+
+  const securedSavings = savingsBalance
+    .mul(auto.savingsSecurityPercent)
+    .div(100);
+  const securedShares = shareBalance
+    .mul(auto.sharesSecurityPercent)
+    .div(100);
+  const collateralBase = Prisma.Decimal.max(new Prisma.Decimal(0), securedSavings.plus(securedShares));
+  const maxSupportedAmount = collateralBase
+    .mul(auto.creditCapacityMultiplier)
+    .plus(new Prisma.Decimal(auto.creditCapacityBaseBuffer));
+
+  const hasEnoughRepaymentHistory = repaymentCount >= auto.minRepaymentCount;
+  const hasClearedLoan = clearedCount > 0;
+  const hasSavingsTrust = savingsDepositCount >= auto.minSavingsDepositCount;
+  const hasLendingTrust = loanLifecycleCount >= auto.minLoanLifecycleCount;
+  const hasBaselineHistory = hasEnoughRepaymentHistory || hasClearedLoan;
+  const trustMaturityPassed = hasSavingsTrust && hasLendingTrust && hasEnoughRepaymentHistory;
+  const onSchedule =
+    defaultedCount === 0 &&
+    overdueOpenCount <= auto.maxAllowedOverdueOpenLoans &&
+    hasBaselineHistory &&
+    (!auto.requireAnyClearedLoan || hasClearedLoan);
+  const creditWorthy = input.principalAmount.lessThanOrEqualTo(maxSupportedAmount);
+  const requestedAmount = input.principalAmount;
+  const utilizationRatio = maxSupportedAmount.greaterThan(0)
+    ? Number(requestedAmount.div(maxSupportedAmount).toFixed(4))
+    : Number.POSITIVE_INFINITY;
+
+  let score = 100;
+  if (defaultedCount > 0) {
+    score -= Math.min(60, defaultedCount * auto.defaultPenaltyPoints);
+  }
+  if (overdueOpenCount > 0) {
+    score -= Math.min(35, overdueOpenCount * auto.overduePenaltyPoints);
+  }
+  if (!hasEnoughRepaymentHistory) {
+    score -= auto.thinHistoryPenaltyPoints;
+  }
+  if (auto.requireAnyClearedLoan && !hasClearedLoan) {
+    score -= auto.noClearedPenaltyPoints;
+  }
+  if (utilizationRatio > auto.utilizationHardStopThreshold * 1.2) {
+    score -= auto.utilizationHardStopPenaltyPoints + 15;
+  } else if (utilizationRatio > auto.utilizationHardStopThreshold) {
+    score -= auto.utilizationHardStopPenaltyPoints;
+  } else if (utilizationRatio > auto.utilizationWarningThreshold) {
+    score -= auto.utilizationWarningPenaltyPoints;
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  const reasonCodes: string[] = [];
+  if (defaultedCount === 0) {
+    reasonCodes.push("NO_DEFAULT_HISTORY");
+  } else {
+    reasonCodes.push("HAS_DEFAULT_HISTORY");
+  }
+  if (overdueOpenCount === 0) {
+    reasonCodes.push("NO_OVERDUE_OPEN_LOANS");
+  } else {
+    reasonCodes.push("HAS_OVERDUE_OPEN_LOANS");
+  }
+  if (hasEnoughRepaymentHistory) {
+    reasonCodes.push("CONSISTENT_REPAYMENT_ACTIVITY");
+  } else {
+    reasonCodes.push("LIMITED_REPAYMENT_HISTORY");
+  }
+  if (hasSavingsTrust) {
+    reasonCodes.push("SAVINGS_ACTIVITY_TRUST_PASSED");
+  } else {
+    reasonCodes.push("SAVINGS_ACTIVITY_TRUST_PENDING");
+  }
+  if (hasLendingTrust) {
+    reasonCodes.push("LENDING_ACTIVITY_TRUST_PASSED");
+  } else {
+    reasonCodes.push("LENDING_ACTIVITY_TRUST_PENDING");
+  }
+  if (hasClearedLoan) {
+    reasonCodes.push("HAS_CLEARED_LOAN_HISTORY");
+  } else {
+    reasonCodes.push("NO_CLEARED_LOAN_HISTORY");
+  }
+  if (creditWorthy) {
+    reasonCodes.push("REQUEST_WITHIN_CREDIT_CAPACITY");
+  } else {
+    reasonCodes.push("REQUEST_EXCEEDS_CREDIT_CAPACITY");
+  }
+
+  const amberFloor = Math.max(0, auto.greenMinScore - 20);
+  const riskTier = score >= auto.greenMinScore ? "GREEN" : score >= amberFloor ? "AMBER" : "RED";
+  const green =
+    auto.enableGreenAutoScheduleApproval &&
+    riskTier === "GREEN" &&
+    trustMaturityPassed &&
+    onSchedule &&
+    creditWorthy;
+
+  return {
+    green,
+    riskTier,
+    score,
+    onSchedule,
+    trustMaturityPassed,
+    hasSavingsTrust,
+    hasLendingTrust,
+    creditWorthy,
+    requestedAmount: requestedAmount.toFixed(2),
+    maxSupportedAmount: maxSupportedAmount.toFixed(2),
+    utilizationRatio,
+    defaultedCount,
+    overdueOpenCount,
+    repaymentCount,
+    reasonCodes,
+  };
 };
 
 const frequencyDays: Record<string, number> = {
@@ -72,6 +300,14 @@ export const LoansService = {
         saccoId: input.saccoId,
         ...(input.status ? { status: input.status as LoanStatus } : {}),
       },
+      include: {
+        loanProduct: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: pageSize,
       skip,
@@ -83,18 +319,33 @@ export const LoansService = {
     const principalAmount = new Prisma.Decimal(parsed.principalAmount);
     const settings = await SettingsService.get(parsed.saccoId);
 
-    if (principalAmount.lessThan(settings.loanProduct.minPrincipal)) {
+    const defaultProduct = await LoanProductsService.ensureDefault(parsed.saccoId);
+    const loanProduct = parsed.loanProductId
+      ? await prisma.loanProduct.findFirst({
+          where: {
+            id: parsed.loanProductId,
+            saccoId: parsed.saccoId,
+            isActive: true,
+          },
+        })
+      : defaultProduct;
+
+    if (!loanProduct) {
+      throw new Error("Loan product not found or inactive");
+    }
+
+    if (principalAmount.lessThan(loanProduct.minPrincipal)) {
       throw new Error("Principal is below configured minimum loan amount");
     }
-    if (principalAmount.greaterThan(settings.loanProduct.maxPrincipal)) {
+    if (principalAmount.greaterThan(loanProduct.maxPrincipal)) {
       throw new Error("Principal exceeds configured maximum loan amount");
     }
 
-    const termMonths = parsed.termMonths ?? settings.loanProduct.minTermMonths;
-    if (termMonths < settings.loanProduct.minTermMonths) {
+    const termMonths = parsed.termMonths ?? loanProduct.minTermMonths;
+    if (termMonths < loanProduct.minTermMonths) {
       throw new Error("Loan term is below configured minimum term");
     }
-    if (termMonths > settings.loanProduct.maxTermMonths) {
+    if (termMonths > loanProduct.maxTermMonths) {
       throw new Error("Loan term exceeds configured maximum term");
     }
 
@@ -110,6 +361,7 @@ export const LoansService = {
       data: {
         saccoId: parsed.saccoId,
         memberId: parsed.memberId,
+        loanProductId: loanProduct.id,
         termMonths,
         dueAt,
         principalAmount,
@@ -164,6 +416,41 @@ export const LoansService = {
       before: existing,
       after: loan,
     });
+
+    const eligibility = await assessAutoScheduleEligibility({
+      saccoId,
+      memberId: loan.memberId,
+      principalAmount: loan.principalAmount,
+    });
+
+    if (eligibility.green) {
+      const existingScheduleApproval = await prisma.auditLog.findFirst({
+        where: {
+          saccoId,
+          entity: "LoanScheduleApproval",
+          entityId: `${loan.id}:${loan.memberId}`,
+        },
+      });
+
+      if (!existingScheduleApproval) {
+        await AuditService.record({
+          saccoId,
+          actorId,
+          action: "AUTO_APPROVE",
+          entity: "LoanScheduleApproval",
+          entityId: `${loan.id}:${loan.memberId}`,
+          after: {
+            loanId: loan.id,
+            memberId: loan.memberId,
+            approvedAt: new Date().toISOString(),
+            approvalMode: "AUTO_GREEN_MEMBER",
+            assessment: eligibility,
+            schedule: toInstallmentRows(loan),
+          },
+        });
+      }
+    }
+
     return loan;
   },
 
@@ -173,6 +460,43 @@ export const LoansService = {
     });
     if (existing.status !== "APPROVED") {
       throw new Error("Only approved loans can be disbursed");
+    }
+
+    const scheduleApproval = await prisma.auditLog.findFirst({
+      where: {
+        saccoId,
+        entity: "LoanScheduleApproval",
+        entityId: `${existing.id}:${existing.memberId}`,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!scheduleApproval) {
+      const eligibility = await assessAutoScheduleEligibility({
+        saccoId,
+        memberId: existing.memberId,
+        principalAmount: existing.principalAmount,
+      });
+
+      if (eligibility.green) {
+        await AuditService.record({
+          saccoId,
+          actorId,
+          action: "AUTO_APPROVE",
+          entity: "LoanScheduleApproval",
+          entityId: `${existing.id}:${existing.memberId}`,
+          after: {
+            loanId: existing.id,
+            memberId: existing.memberId,
+            approvedAt: new Date().toISOString(),
+            approvalMode: "AUTO_GREEN_MEMBER_DISBURSE",
+            assessment: eligibility,
+            schedule: toInstallmentRows(existing),
+          },
+        });
+      } else {
+        throw new Error("Member must approve loan payment schedule before disbursement");
+      }
     }
 
     const loan = await prisma.loan.update({
@@ -202,6 +526,71 @@ export const LoansService = {
     });
 
     return loan;
+  },
+
+  async getSchedule(loan: {
+    id: string;
+    appliedAt: Date;
+    termMonths: number;
+    principalAmount: Prisma.Decimal;
+    interestAmount: Prisma.Decimal;
+  }) {
+    return toInstallmentRows(loan);
+  },
+
+  async approveScheduleByMember(input: {
+    loanId: string;
+    saccoId: string;
+    memberId: string;
+    actorId?: string;
+  }) {
+    const loan = await prisma.loan.findFirstOrThrow({
+      where: {
+        id: input.loanId,
+        saccoId: input.saccoId,
+        memberId: input.memberId,
+      },
+    });
+
+    if (loan.status !== "APPROVED") {
+      throw new Error("Only approved loans can have schedule approval");
+    }
+
+    const existing = await prisma.auditLog.findFirst({
+      where: {
+        saccoId: input.saccoId,
+        entity: "LoanScheduleApproval",
+        entityId: `${loan.id}:${loan.memberId}`,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (existing) {
+      return {
+        loanId: loan.id,
+        alreadyApproved: true,
+      };
+    }
+
+    const schedule = toInstallmentRows(loan);
+    await AuditService.record({
+      saccoId: input.saccoId,
+      actorId: input.actorId,
+      action: "APPROVE",
+      entity: "LoanScheduleApproval",
+      entityId: `${loan.id}:${loan.memberId}`,
+      after: {
+        loanId: loan.id,
+        memberId: loan.memberId,
+        approvedAt: new Date().toISOString(),
+        schedule,
+      },
+    });
+
+    return {
+      loanId: loan.id,
+      alreadyApproved: false,
+    };
   },
 
   async repay(id: string, payload: unknown, actorId?: string) {

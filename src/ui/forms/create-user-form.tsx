@@ -2,21 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const roleOptions = [
-  "SACCO_ADMIN",
-  "TREASURER",
-  "LOAN_OFFICER",
-  "AUDITOR",
-  "MEMBER",
-] as const;
-
-type Role = (typeof roleOptions)[number];
+import { ROLE_LEVELS, SACCO_ROLE_OPTIONS, type SaccoRole } from "@/src/lib/roles";
 
 type CreateUserFormProps = {
   inDialog?: boolean;
   onSuccess?: () => void;
-  allowedRoles?: Role[];
+  allowedRoles?: SaccoRole[];
 };
 
 export function CreateUserForm({
@@ -27,11 +18,11 @@ export function CreateUserForm({
   const router = useRouter();
   const assignableRoles =
     allowedRoles && allowedRoles.length > 0
-      ? roleOptions.filter((option) => allowedRoles.includes(option))
-      : roleOptions;
+      ? SACCO_ROLE_OPTIONS.filter((option) => allowedRoles.includes(option))
+      : SACCO_ROLE_OPTIONS;
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<Role>(assignableRoles[0] ?? "MEMBER");
+  const [role, setRole] = useState<SaccoRole>(assignableRoles[0] ?? "MEMBER");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -81,7 +72,7 @@ export function CreateUserForm({
       );
       setEmail("");
       setFullName("");
-      setRole("MEMBER");
+      setRole(assignableRoles[0] ?? "MEMBER");
       setPassword("");
       router.refresh();
       onSuccess?.();
@@ -145,13 +136,13 @@ export function CreateUserForm({
         <select
           id="role"
           value={role}
-          onChange={(event) => setRole(event.target.value as Role)}
+          onChange={(event) => setRole(event.target.value as SaccoRole)}
           disabled={assignableRoles.length === 0}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         >
           {assignableRoles.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {option} (L{ROLE_LEVELS[option]})
             </option>
           ))}
         </select>

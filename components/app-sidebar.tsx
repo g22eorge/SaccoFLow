@@ -52,6 +52,13 @@ const navMainItems: SidebarItem[] = [
       title: "Dashboard",
       url: "/dashboard",
       icon: IconDashboard,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+    {
+      title: "My Dashboard",
+      url: "/dashboard/member",
+      icon: IconDashboard,
+      roles: ["MEMBER"],
     },
     {
       title: "Members",
@@ -60,34 +67,40 @@ const navMainItems: SidebarItem[] = [
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
     {
+      title: "Member Requests",
+      url: "/dashboard/member-requests",
+      icon: IconUsers,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "BOARD_MEMBER"],
+    },
+    {
       title: "Savings",
       url: "/dashboard/savings",
       icon: IconCash,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Shares",
       url: "/dashboard/shares",
       icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Loans",
       url: "/dashboard/loans",
       icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Reports",
       url: "/dashboard/reports",
       icon: IconReport,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR"],
     },
     {
       title: "Audit Logs",
       url: "/dashboard/audit-logs",
       icon: IconReport,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
 ]
 
@@ -96,13 +109,13 @@ const navSecondaryItems: SidebarItem[] = [
       title: "Settings",
       url: "/dashboard/settings",
       icon: IconSettings,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
     {
       title: "Users",
       url: "/users",
       icon: IconUsers,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"],
     },
 ]
 
@@ -123,7 +136,7 @@ const quickAccessItems: QuickAccessItem[] = [
       name: "Member Statements",
       url: "/dashboard/reports#member-statements",
       icon: IconReport,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
     },
 ]
 
@@ -156,7 +169,7 @@ const quickCreateItems: ActionItem[] = [
     title: "Create User",
     url: "/users",
     icon: IconUsers,
-    roles: ["SACCO_ADMIN", "SUPER_ADMIN"],
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"],
   },
 ]
 
@@ -186,7 +199,7 @@ const inboxItems: Array<{
     detail: "Review latest activity logs",
     url: "/dashboard/audit-logs",
     icon: IconReport,
-    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
   },
 ]
 
