@@ -7,6 +7,9 @@ const state = {
 
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
+  cookies: async () => ({
+    get: () => undefined,
+  }),
 }));
 
 mock.module("next/navigation", () => ({
@@ -67,11 +70,15 @@ describe("RBAC", () => {
     }
   });
 
-  it("allows SUPER_ADMIN regardless of required role list", async () => {
+  it("requires explicit SUPER_ADMIN in required role list", async () => {
     state.session = { user: { email: "super@example.com" } };
     state.appUser = { role: "SUPER_ADMIN" };
 
-    const result = await requireRoles(["TREASURER"]);
+    await expect(requireRoles(["TREASURER"])).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
+
+    const result = await requireRoles(["SUPER_ADMIN"]);
     expect(result.role).toBe("SUPER_ADMIN");
   });
 

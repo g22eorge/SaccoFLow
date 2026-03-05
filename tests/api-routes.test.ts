@@ -259,14 +259,14 @@ describe("Users API", () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.data).toHaveLength(1);
-    expect(state.roleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN"]);
+    expect(state.roleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"]);
   });
 
-  it("POST /api/users injects saccoId and enforces SUPER_ADMIN escalation", async () => {
+  it("POST /api/users injects saccoId and creates assignable role", async () => {
     const request = {
       json: async () => ({
         email: "admin2@example.com",
-        role: "SUPER_ADMIN",
+        role: "MEMBER",
       }),
     } as unknown as Request;
 
@@ -277,13 +277,10 @@ describe("Users API", () => {
     expect(body.success).toBe(true);
     expect(state.usersCreatePayload).toEqual({
       email: "admin2@example.com",
-      role: "SUPER_ADMIN",
+      role: "MEMBER",
       saccoId: "sacco-1",
     });
-    expect(state.roleCalls).toEqual([
-      ["SACCO_ADMIN", "SUPER_ADMIN"],
-      ["SUPER_ADMIN"],
-    ]);
+    expect(state.roleCalls).toEqual([["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"]]);
   });
 
   it("POST /api/users returns 403 when role check fails", async () => {

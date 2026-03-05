@@ -70,6 +70,33 @@ mock.module("@/src/server/services/settings.service", () => ({
         tertiaryTarget: "PRINCIPAL",
         overpaymentHandling: "HOLD_AS_CREDIT",
       },
+      autoDecision: {
+        enableGreenAutoScheduleApproval: true,
+        enableDelinquencyEarlyWarnings: true,
+        greenMinScore: 78,
+        savingsSecurityPercent: 70,
+        sharesSecurityPercent: 80,
+        creditCapacityMultiplier: 2.5,
+        creditCapacityBaseBuffer: 150000,
+        minSavingsDepositCount: 1,
+        minLoanLifecycleCount: 1,
+        minRepaymentCount: 4,
+        requireAnyClearedLoan: true,
+        maxAllowedOverdueOpenLoans: 0,
+        defaultPenaltyPoints: 30,
+        overduePenaltyPoints: 12,
+        thinHistoryPenaltyPoints: 12,
+        noClearedPenaltyPoints: 10,
+        utilizationWarningThreshold: 0.75,
+        utilizationHardStopThreshold: 1,
+        utilizationWarningPenaltyPoints: 10,
+        utilizationHardStopPenaltyPoints: 25,
+        earlyWarningWatchDays: 30,
+        earlyWarningEscalationDays: 14,
+        earlyWarningNoRepaymentDays: 30,
+        earlyWarningHighOutstandingRatio: 0.8,
+        earlyWarningMaxCases: 8,
+      },
     }),
   },
 }));
@@ -101,6 +128,15 @@ mock.module("@/src/server/db/prisma", () => ({
           ...args.data,
         };
       },
+    },
+    loanRepayment: {
+      count: async () => 0,
+    },
+    ledgerEntry: {
+      aggregate: async () => ({ _sum: { amount: new Prisma.Decimal(0) } }),
+    },
+    auditLog: {
+      findFirst: async () => ({ id: "audit-approval-1" }),
     },
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) => {
       state.transactionCalls += 1;
