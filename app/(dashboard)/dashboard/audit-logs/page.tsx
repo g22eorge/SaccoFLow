@@ -15,6 +15,75 @@ const VIEW_ROLES = [
   "LOAN_OFFICER",
 ];
 
+const ROLE_AUDIT_SCOPE: Partial<
+  Record<
+    (typeof VIEW_ROLES)[number],
+    {
+      entities?: string[];
+      actions?: string[];
+      canExport: boolean;
+      label: string;
+    }
+  >
+> = {
+  SACCO_ADMIN: { canExport: true, label: "Full audit visibility" },
+  SUPER_ADMIN: { canExport: true, label: "Full audit visibility" },
+  AUDITOR: { canExport: true, label: "Full audit visibility" },
+  CHAIRPERSON: {
+    canExport: false,
+    label: "Governance scope",
+    entities: [
+      "Loan",
+      "LoanRepayment",
+      "LoanApprovalMatrixState",
+      "LoanApprovalMatrixStep",
+      "LoanScheduleApproval",
+      "CollectionAction",
+      "AppSetting",
+      "MemberRequest",
+    ],
+  },
+  BOARD_MEMBER: {
+    canExport: false,
+    label: "Board oversight scope",
+    entities: [
+      "Loan",
+      "LoanRepayment",
+      "LoanApprovalMatrixState",
+      "LoanApprovalMatrixStep",
+      "CollectionAction",
+      "AppSetting",
+      "MemberRequest",
+    ],
+  },
+  TREASURER: {
+    canExport: true,
+    label: "Finance and collections scope",
+    entities: [
+      "SavingsTransaction",
+      "LedgerEntry",
+      "Loan",
+      "LoanRepayment",
+      "CollectionAction",
+      "MemberRequest",
+      "AppSetting",
+    ],
+  },
+  LOAN_OFFICER: {
+    canExport: true,
+    label: "Credit and collections scope",
+    entities: [
+      "Loan",
+      "LoanRepayment",
+      "LoanApprovalMatrixState",
+      "LoanApprovalMatrixStep",
+      "LoanScheduleApproval",
+      "CollectionAction",
+      "MemberRequest",
+    ],
+  },
+};
+
 export default async function AuditLogsPage({
   searchParams,
 }: {
@@ -26,7 +95,16 @@ export default async function AuditLogsPage({
   }
 
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
-  const auditLogs = await ReportsService.auditTrail({ saccoId, page });
+  const scope = ROLE_AUDIT_SCOPE[role] ?? {
+    canExport: false,
+    label: "Scoped visibility",
+  };
+  const auditLogs = await ReportsService.auditTrail({
+    saccoId,
+    page,
+    entities: scope.entities,
+    actions: scope.actions,
+  });
   const hasNextPage = auditLogs.length === 30;
   const auditRows = auditLogs.map((entry) => ({
     id: entry.id,
@@ -35,6 +113,9 @@ export default async function AuditLogsPage({
     entityId: entry.entityId,
     createdAt: entry.createdAt.toISOString(),
     actorName: entry.actor?.fullName ?? entry.actor?.email ?? "System",
+    actorRole: entry.actor?.role ?? null,
+    beforeJson: entry.beforeJson,
+    afterJson: entry.afterJson,
   }));
 
   return (
@@ -56,9 +137,12 @@ export default async function AuditLogsPage({
                   <p className="mt-2 text-xs text-muted-foreground">
                     Updated {new Date().toLocaleString()} | Page {page}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Access scope: {scope.label}
+                  </p>
                 </div>
 
-                <AuditLogsPanel logs={auditRows} />
+                <AuditLogsPanel logs={auditRows} canExport={scope.canExport} />
 
                 <section className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between">

@@ -30,6 +30,7 @@ type SidebarItem = {
   title: string
   url: string
   icon: Icon
+  badge?: number
   roles?: Role[]
 }
 
@@ -73,18 +74,6 @@ const navMainItems: SidebarItem[] = [
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "BOARD_MEMBER"],
     },
     {
-      title: "Savings",
-      url: "/dashboard/savings",
-      icon: IconCash,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
-    },
-    {
-      title: "Shares",
-      url: "/dashboard/shares",
-      icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
-    },
-    {
       title: "Loans",
       url: "/dashboard/loans",
       icon: IconCurrencyDollar,
@@ -95,6 +84,18 @@ const navMainItems: SidebarItem[] = [
       url: "/dashboard/collections",
       icon: IconCurrencyDollar,
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      title: "Savings",
+      url: "/dashboard/savings",
+      icon: IconCash,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      title: "Shares",
+      url: "/dashboard/shares",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Reports",
@@ -215,12 +216,27 @@ const hasRole = (role: Role, allowed?: Role[]) =>
 export function AppSidebar({
   role,
   user,
+  badges,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   role: Role
   user: { name: string; email: string }
+  badges?: {
+    pendingLoanRequests?: number
+    pendingMemberRequests?: number
+  }
 }) {
-  const navMain = navMainItems.filter((item) => hasRole(role, item.roles))
+  const navMain = navMainItems
+    .map((item) => {
+      if (item.url === "/dashboard/loans") {
+        return { ...item, badge: badges?.pendingLoanRequests ?? 0 }
+      }
+      if (item.url === "/dashboard/member-requests") {
+        return { ...item, badge: badges?.pendingMemberRequests ?? 0 }
+      }
+      return item
+    })
+    .filter((item) => hasRole(role, item.roles))
   const navSecondary = navSecondaryItems.filter((item) => hasRole(role, item.roles))
   const documents = quickAccessItems.filter((item) => hasRole(role, item.roles))
   const createActions = quickCreateItems.filter((item) => hasRole(role, item.roles))

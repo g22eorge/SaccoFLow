@@ -24,7 +24,7 @@ export function NavSecondary({
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
     <SidebarGroup {...props}>
-      <SidebarGroupLabel className="text-orange-600 dark:text-orange-500">Support</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-orange-600 dark:text-orange-500">Administration</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (

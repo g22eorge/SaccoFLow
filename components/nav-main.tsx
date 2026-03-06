@@ -33,6 +33,7 @@ export function NavMain({
     title: string
     url: string
     icon?: Icon
+    badge?: number
   }[]
   quickCreateItems: {
     title: string
@@ -128,6 +129,11 @@ export function NavMain({
                 <Link href={item.url}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
+                  {item.badge && item.badge > 0 ? (
+                    <span className="ml-auto rounded-full bg-[#cc5500] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  ) : null}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

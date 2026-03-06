@@ -14,8 +14,10 @@ type ListAuditInput = {
   saccoId: string;
   page: number;
   entity?: string;
+  entities?: string[];
   actorId?: string;
   action?: string;
+  actions?: string[];
   from?: Date;
   to?: Date;
 };
@@ -50,8 +52,14 @@ export const AuditService = {
       where: {
         saccoId: input.saccoId,
         ...(input.entity ? { entity: input.entity } : {}),
+        ...(input.entities && input.entities.length > 0
+          ? { entity: { in: input.entities } }
+          : {}),
         ...(input.actorId ? { actorId: input.actorId } : {}),
         ...(input.action ? { action: input.action } : {}),
+        ...(input.actions && input.actions.length > 0
+          ? { action: { in: input.actions } }
+          : {}),
         ...(input.from || input.to
           ? {
               createdAt: {

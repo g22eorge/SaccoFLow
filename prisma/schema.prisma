@@ -57,6 +57,16 @@ model AppUser {
   authUserId String     @unique
   email      String
   fullName   String?
+  phone      String?
+  jobTitle   String?
+  branch     String?
+  timezone   String?
+  locale     String?
+  avatarUrl  String?
+  notifyEmail Boolean   @default(true)
+  notifySms   Boolean   @default(false)
+  notifyWhatsapp Boolean @default(false)
+  notifyRepaymentReminderDays Int @default(3)
   role       Role       @default(SACCO_ADMIN)
   isActive   Boolean    @default(true)
   createdAt  DateTime   @default(now())

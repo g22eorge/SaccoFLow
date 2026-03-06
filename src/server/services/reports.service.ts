@@ -304,8 +304,10 @@ export const ReportsService = {
     saccoId: string;
     page: number;
     entity?: string;
+    entities?: string[];
     actorId?: string;
     action?: string;
+    actions?: string[];
     from?: Date;
     to?: Date;
   }) {

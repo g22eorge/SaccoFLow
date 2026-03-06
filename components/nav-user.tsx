@@ -3,10 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  IconCreditCard,
   IconDotsVertical,
   IconLogout,
-  IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
 import { authClient } from "@/src/server/auth/auth-client"
@@ -29,7 +27,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function NavUser({
@@ -41,7 +38,6 @@ export function NavUser({
     avatar: string
   }
 }) {
-  const { isMobile } = useSidebar()
   const [mounted, setMounted] = React.useState(false)
   const [signingOut, setSigningOut] = React.useState(false)
 
@@ -109,7 +105,7 @@ export function NavUser({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
+            side="bottom"
             align="end"
             sideOffset={4}
           >
@@ -133,18 +129,6 @@ export function NavUser({
                 <Link href="/dashboard/account">
                   <IconUserCircle />
                   Account
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/billing">
-                  <IconCreditCard />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/notifications">
-                  <IconNotification />
-                  Notifications
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
