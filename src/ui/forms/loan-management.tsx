@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatMoney } from "@/src/lib/money";
 
@@ -74,6 +74,22 @@ const formatUtcDate = (value: string) => {
   return `${day}/${month}/${year}`;
 };
 
+const loanStatusChipClass = (status: string) => {
+  if (status === "PENDING") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  if (status === "APPROVED") {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+  if (status === "ACTIVE" || status === "DISBURSED") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (status === "DEFAULTED") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+  return "border-zinc-200 bg-zinc-50 text-zinc-700";
+};
+
 export function LoanManagement({
   members,
   loans,
@@ -112,6 +128,7 @@ export function LoanManagement({
     "ALL" | "PENDING" | "APPROVED" | "DISBURSED" | "ACTIVE" | "DEFAULTED" | "CLEARED"
   >("ALL");
   const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">("dueSoon");
+  const [viewMode, setViewMode] = useState<"CARDS" | "TABLE">("TABLE");
 
   const selectedLoanProduct =
     loanProducts.find((product) => product.id === loanProductId) ?? activeLoanProducts[0] ?? null;
@@ -132,7 +149,14 @@ export function LoanManagement({
     setStatusFilter("ALL");
   }, [searchParams]);
 
-  const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
+  const totalOutstanding = useCallback((loan: LoanRow) => {
+    const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
+    return (
+      toNumber(loan.outstandingPrincipal) +
+      toNumber(loan.outstandingInterest) +
+      toNumber(loan.outstandingPenalty)
+    );
+  }, []);
 
   const visibleLoans = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -145,14 +169,8 @@ export function LoanManagement({
 
     if (sortBy === "outstanding") {
       return [...filtered].sort((a, b) => {
-        const aOutstanding =
-          toNumber(a.outstandingPrincipal) +
-          toNumber(a.outstandingInterest) +
-          toNumber(a.outstandingPenalty);
-        const bOutstanding =
-          toNumber(b.outstandingPrincipal) +
-          toNumber(b.outstandingInterest) +
-          toNumber(b.outstandingPenalty);
+        const aOutstanding = totalOutstanding(a);
+        const bOutstanding = totalOutstanding(b);
         return bOutstanding - aOutstanding;
       });
     }
@@ -166,7 +184,7 @@ export function LoanManagement({
       const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
       return aDue - bDue;
     });
-  }, [loans, query, sortBy, statusFilter]);
+  }, [loans, query, sortBy, statusFilter, totalOutstanding]);
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -674,166 +692,325 @@ export function LoanManagement({
           >
             Export CSV
           </button>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visibleLoans.map((loan) => (
-            <article
-              key={loan.id}
-              className="rounded-xl border border-border bg-background p-4"
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMode("TABLE")}
+              className={`rounded-md border px-2.5 py-1 text-xs ${
+                viewMode === "TABLE" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+              }`}
             >
-              {(() => {
-                const trustPendingReasons = loan.scheduleApprovalReasons.filter((reason) =>
-                  [
-                    "SAVINGS_ACTIVITY_TRUST_PENDING",
-                    "LENDING_ACTIVITY_TRUST_PENDING",
-                    "LIMITED_REPAYMENT_HISTORY",
-                  ].includes(reason),
-                );
+              Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("CARDS")}
+              className={`rounded-md border px-2.5 py-1 text-xs ${
+                viewMode === "CARDS" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+              }`}
+            >
+              Cards
+            </button>
+          </div>
+        </div>
+        {viewMode === "CARDS" ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {visibleLoans.map((loan) => (
+              <article
+                key={loan.id}
+                className="rounded-xl border border-border bg-background p-4"
+              >
+                {(() => {
+                  const trustPendingReasons = loan.scheduleApprovalReasons.filter((reason) =>
+                    [
+                      "SAVINGS_ACTIVITY_TRUST_PENDING",
+                      "LENDING_ACTIVITY_TRUST_PENDING",
+                      "LIMITED_REPAYMENT_HISTORY",
+                    ].includes(reason),
+                  );
 
-                return trustPendingReasons.length > 0 ? (
-                  <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                    <p className="text-xs font-semibold text-amber-800">Trust Pending</p>
-                    <p className="mt-1 text-xs text-amber-700">
-                      {trustPendingReasons.map((reason) => trustReasonLabel(reason)).join(" | ")}
-                    </p>
-                  </div>
-                ) : null;
-              })()}
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">{loan.memberName}</p>
-                <div className="flex items-center gap-1">
-                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold">
-                    {loan.status}
-                  </span>
-                  {loan.scheduleAutoApproved ? (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                      GREEN AUTO
+                  return trustPendingReasons.length > 0 ? (
+                    <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-xs font-semibold text-amber-800">Trust Pending</p>
+                      <p className="mt-1 text-xs text-amber-700">
+                        {trustPendingReasons.map((reason) => trustReasonLabel(reason)).join(" | ")}
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold">{loan.memberName}</p>
+                  <div className="flex items-center gap-1">
+                    <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${loanStatusChipClass(loan.status)}`}>
+                      {loan.status}
                     </span>
+                    {loan.scheduleAutoApproved ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                        GREEN AUTO
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+                  <p>
+                    Product:{" "}
+                    <span className="font-semibold text-foreground">{loan.loanProductName}</span>
+                  </p>
+                  <p>
+                    Principal:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatMoney(loan.principalAmount)}
+                    </span>
+                  </p>
+                  <p>
+                    Outstanding P/I/F:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatMoney(loan.outstandingPrincipal)} /{" "}
+                      {formatMoney(loan.outstandingInterest)} /{" "}
+                      {formatMoney(loan.outstandingPenalty)}
+                    </span>
+                  </p>
+                  <p>
+                    Due:{" "}
+                    <span className="font-semibold text-foreground">
+                      {loan.dueAt ? formatUtcDate(loan.dueAt) : "-"} (
+                      {loan.termMonths} months)
+                    </span>
+                  </p>
+                  {loan.status === "PENDING" ? (
+                    <p>
+                      Approval progress:{" "}
+                      <span className="font-semibold text-foreground">
+                        {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
+                      </span>
+                      {loan.approvalRoleGroups.length > 0
+                        ? ` | ${loan.approvalRoleGroups.join("+")}`
+                        : ""}
+                    </p>
+                  ) : null}
+                  {loan.status === "PENDING" && loan.approvalSlaDueAt ? (
+                    <p>
+                      Approval SLA:{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatUtcDate(loan.approvalSlaDueAt)}
+                      </span>
+                    </p>
+                  ) : null}
+                  {loan.scheduleAutoApproved ? (
+                    <p>
+                      Auto score:{" "}
+                      <span className="font-semibold text-foreground">
+                        {loan.scheduleApprovalScore ?? "-"}
+                        {loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}
+                      </span>
+                    </p>
+                  ) : null}
+                  {loan.scheduleApprovalReasons.length > 0 ? (
+                    <p className="line-clamp-2">
+                      Reasons:{" "}
+                      <span className="font-semibold text-foreground">
+                        {loan.scheduleApprovalReasons.join(", ")}
+                      </span>
+                    </p>
                   ) : null}
                 </div>
-              </div>
-              <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
-                <p>
-                  Product:{" "}
-                  <span className="font-semibold text-foreground">{loan.loanProductName}</span>
-                </p>
-                <p>
-                  Principal:{" "}
-                  <span className="font-semibold text-foreground">
-                    {formatMoney(loan.principalAmount)}
-                  </span>
-                </p>
-                <p>
-                  Outstanding P/I/F:{" "}
-                  <span className="font-semibold text-foreground">
-                    {formatMoney(loan.outstandingPrincipal)} /{" "}
-                    {formatMoney(loan.outstandingInterest)} /{" "}
-                    {formatMoney(loan.outstandingPenalty)}
-                  </span>
-                </p>
-                <p>
-                  Due:{" "}
-                  <span className="font-semibold text-foreground">
-                    {loan.dueAt ? formatUtcDate(loan.dueAt) : "-"} (
-                    {loan.termMonths} months)
-                  </span>
-                </p>
-                {loan.status === "PENDING" ? (
-                  <p>
-                    Approval progress:{" "}
-                    <span className="font-semibold text-foreground">
-                      {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
-                    </span>
-                    {loan.approvalRoleGroups.length > 0
-                      ? ` | ${loan.approvalRoleGroups.join("+")}`
-                      : ""}
-                  </p>
-                ) : null}
-                {loan.status === "PENDING" && loan.approvalSlaDueAt ? (
-                  <p>
-                    Approval SLA:{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatUtcDate(loan.approvalSlaDueAt)}
-                    </span>
-                  </p>
-                ) : null}
-                {loan.scheduleAutoApproved ? (
-                  <p>
-                    Auto score:{" "}
-                    <span className="font-semibold text-foreground">
-                      {loan.scheduleApprovalScore ?? "-"}
-                      {loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}
-                    </span>
-                  </p>
-                ) : null}
-                {loan.scheduleApprovalReasons.length > 0 ? (
-                  <p className="line-clamp-2">
-                    Reasons:{" "}
-                    <span className="font-semibold text-foreground">
-                      {loan.scheduleApprovalReasons.join(", ")}
-                    </span>
-                  </p>
-                ) : null}
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {loan.status === "PENDING" ? (
-                  <button
-                    type="button"
-                    disabled={busyLoanId === loan.id}
-                    onClick={() => callLoanAction(loan.id, "approve")}
-                    className="rounded-lg border border-border px-2 py-1"
-                  >
-                    {loan.approvalCurrentCount > 0 ? "Approve next step" : "Start approval"}
-                  </button>
-                ) : null}
-                {loan.status === "APPROVED" ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
-                      onClick={() => callLoanAction(loan.id, "disburse")}
-                      className="rounded-lg border border-border px-2 py-1"
-                    >
-                      Disburse
-                    </button>
-                    {!loan.scheduleApprovedByMember ? (
-                      <p className="text-xs text-amber-700">Waiting for member schedule approval</p>
-                    ) : null}
-                  </>
-                ) : null}
-                {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
-                  <>
-                    <input
-                      type="number"
-                      min={0.01}
-                      step="0.01"
-                      value={repayAmounts[loan.id] ?? ""}
-                      onChange={(event) =>
-                        setRepayAmounts((prev) => ({
-                          ...prev,
-                          [loan.id]: event.target.value,
-                        }))
-                      }
-                      className="w-28 rounded border border-border bg-background px-2 py-1"
-                      placeholder="Repay"
-                    />
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {loan.status === "PENDING" ? (
                     <button
                       type="button"
                       disabled={busyLoanId === loan.id}
-                      onClick={() => handleRepay(loan)}
+                      onClick={() => callLoanAction(loan.id, "approve")}
                       className="rounded-lg border border-border px-2 py-1"
                     >
-                      Repay
+                      {loan.approvalCurrentCount > 0 ? "Approve next step" : "Start approval"}
                     </button>
-                  </>
-                ) : null}
-              </div>
-            </article>
-          ))}
-          {visibleLoans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No loans match this filter.</p>
-          ) : null}
-        </div>
+                  ) : null}
+                  {loan.status === "APPROVED" ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
+                        onClick={() => callLoanAction(loan.id, "disburse")}
+                        className="rounded-lg border border-border px-2 py-1"
+                      >
+                        Disburse
+                      </button>
+                      {!loan.scheduleApprovedByMember ? (
+                        <p className="text-xs text-amber-700">Waiting for member schedule approval</p>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
+                    <>
+                      <input
+                        type="number"
+                        min={0.01}
+                        step="0.01"
+                        value={repayAmounts[loan.id] ?? ""}
+                        onChange={(event) =>
+                          setRepayAmounts((prev) => ({
+                            ...prev,
+                            [loan.id]: event.target.value,
+                          }))
+                        }
+                        className="w-28 rounded border border-border bg-background px-2 py-1"
+                        placeholder="Repay"
+                      />
+                      <button
+                        type="button"
+                        disabled={busyLoanId === loan.id}
+                        onClick={() => handleRepay(loan)}
+                        className="rounded-lg border border-border px-2 py-1"
+                      >
+                        Repay
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[1180px] text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Member</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Product</th>
+                  <th className="px-3 py-2">Principal</th>
+                  <th className="px-3 py-2">Outstanding</th>
+                  <th className="px-3 py-2">Due</th>
+                  <th className="px-3 py-2">Approval</th>
+                  <th className="px-3 py-2">Auto Score</th>
+                  <th className="px-3 py-2">Reasons</th>
+                  <th className="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleLoans.map((loan) => {
+                  const trustPendingReasons = loan.scheduleApprovalReasons.filter((reason) =>
+                    [
+                      "SAVINGS_ACTIVITY_TRUST_PENDING",
+                      "LENDING_ACTIVITY_TRUST_PENDING",
+                      "LIMITED_REPAYMENT_HISTORY",
+                    ].includes(reason),
+                  );
+
+                  return (
+                    <tr key={loan.id} className="border-t align-top hover:bg-muted/40">
+                      <td className="px-3 py-2 text-xs font-semibold">
+                        {loan.memberName}
+                        {trustPendingReasons.length > 0 ? (
+                          <p className="mt-1 text-[11px] text-amber-700">
+                            Trust pending: {trustPendingReasons.map((reason) => trustReasonLabel(reason)).join(" | ")}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${loanStatusChipClass(loan.status)}`}>
+                            {loan.status}
+                          </span>
+                          {loan.scheduleAutoApproved ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              GREEN AUTO
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{loan.loanProductName}</td>
+                      <td className="px-3 py-2 text-xs">{formatMoney(loan.principalAmount)}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {formatMoney(totalOutstanding(loan))}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {loan.dueAt ? formatUtcDate(loan.dueAt) : "-"} ({loan.termMonths}m)
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {loan.status === "PENDING" ? (
+                          <>
+                            {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
+                            {loan.approvalRoleGroups.length > 0 ? ` | ${loan.approvalRoleGroups.join("+")}` : ""}
+                            {loan.approvalSlaDueAt ? ` | SLA ${formatUtcDate(loan.approvalSlaDueAt)}` : ""}
+                          </>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {loan.scheduleAutoApproved
+                          ? `${loan.scheduleApprovalScore ?? "-"}${loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}`
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {loan.scheduleApprovalReasons.length > 0
+                          ? loan.scheduleApprovalReasons.join(", ")
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        <div className="flex min-w-44 flex-wrap items-center gap-2">
+                          {loan.status === "PENDING" ? (
+                            <button
+                              type="button"
+                              disabled={busyLoanId === loan.id}
+                              onClick={() => callLoanAction(loan.id, "approve")}
+                              className="rounded-lg border border-border px-2 py-1"
+                            >
+                              {loan.approvalCurrentCount > 0 ? "Approve next" : "Start approval"}
+                            </button>
+                          ) : null}
+                          {loan.status === "APPROVED" ? (
+                            <button
+                              type="button"
+                              disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
+                              onClick={() => callLoanAction(loan.id, "disburse")}
+                              className="rounded-lg border border-border px-2 py-1"
+                            >
+                              Disburse
+                            </button>
+                          ) : null}
+                          {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
+                            <>
+                              <input
+                                type="number"
+                                min={0.01}
+                                step="0.01"
+                                value={repayAmounts[loan.id] ?? ""}
+                                onChange={(event) =>
+                                  setRepayAmounts((prev) => ({
+                                    ...prev,
+                                    [loan.id]: event.target.value,
+                                  }))
+                                }
+                                className="w-24 rounded border border-border bg-background px-2 py-1"
+                                placeholder="Repay"
+                              />
+                              <button
+                                type="button"
+                                disabled={busyLoanId === loan.id}
+                                onClick={() => handleRepay(loan)}
+                                className="rounded-lg border border-border px-2 py-1"
+                              >
+                                Repay
+                              </button>
+                            </>
+                          ) : null}
+                          {loan.status === "APPROVED" && !loan.scheduleApprovedByMember ? (
+                            <p className="text-[11px] text-amber-700">Waiting member approval</p>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {visibleLoans.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No loans match this filter.</p>
+        ) : null}
       </div>
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

@@ -10,7 +10,7 @@ import { AuditService } from "@/src/server/services/audit.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { ASSIGNABLE_ROLES_BY_ACTOR } from "@/src/lib/roles";
 
-type ManageableRole =
+type AssignableRole =
   | "SUPER_ADMIN"
   | "SACCO_ADMIN"
   | "CHAIRPERSON"
@@ -20,9 +20,11 @@ type ManageableRole =
   | "AUDITOR"
   | "MEMBER";
 
+type ActorRole = AssignableRole | "PLATFORM_SUPER_ADMIN";
+
 const assignableRolesByActor = ASSIGNABLE_ROLES_BY_ACTOR as Record<
-  ManageableRole,
-  readonly ManageableRole[]
+  ActorRole,
+  readonly AssignableRole[]
 >;
 
 export const UsersService = {
@@ -151,7 +153,7 @@ export const UsersService = {
     payload: {
       saccoId: string;
       targetUserId: string;
-      actorRole: ManageableRole;
+      actorRole: ActorRole;
       actorId?: string;
       password?: string;
     },
@@ -231,9 +233,9 @@ export const UsersService = {
   async updateAccess(payload: {
     saccoId: string;
     targetUserId: string;
-    actorRole: ManageableRole;
+    actorRole: ActorRole;
     actorId?: string;
-    role?: ManageableRole;
+    role?: AssignableRole;
     isActive?: boolean;
   }) {
     const parsed = updateUserAccessSchema.parse({
@@ -305,7 +307,7 @@ export const UsersService = {
   async revokeSessions(payload: {
     saccoId: string;
     targetUserId: string;
-    actorRole: ManageableRole;
+    actorRole: ActorRole;
     actorId?: string;
   }) {
     const target = await prisma.appUser.findFirst({

@@ -246,57 +246,21 @@ export default async function SharesPage({
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Share Capital</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        {formatMoney(shareCapitalTotal.toString())}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Avg/member: {formatMoney(averageSharePerMember)}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Share Participation</p>
-                      <p className="mt-1 text-2xl font-bold">{shareParticipation.toFixed(1)}%</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Members with shares: {membersWithShares}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Movement</p>
-                      <p
-                        className={`mt-1 text-2xl font-bold ${
-                          netMovement >= 0 ? "text-emerald-700" : "text-red-700"
-                        }`}
-                      >
-                        {formatMoney(netMovement)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Purchases - redemptions + adjustments
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Purchases</p>
-                      <p className="mt-1 text-2xl font-bold text-emerald-700">
-                        {formatMoney(purchases)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">Latest page totals</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Redemptions</p>
-                      <p className="mt-1 text-2xl font-bold text-red-700">
-                        {formatMoney(redemptions)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">Latest page totals</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Adjustments</p>
-                      <p className="mt-1 text-2xl font-bold">{formatMoney(adjustments)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Transactions loaded: {transactions.length} ({purchaseCount} purchases, {redemptionCount} redemptions)
-                      </p>
-                    </article>
+                  <h2 className="text-lg font-semibold">Share Snapshot</h2>
+                  <div className="mt-4 overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr><th className="px-3 py-2">Metric</th><th className="px-3 py-2">Value</th><th className="px-3 py-2">Detail</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Total Share Capital</td><td className="px-3 py-2 text-xs font-semibold">{formatMoney(shareCapitalTotal.toString())}</td><td className="px-3 py-2 text-xs text-muted-foreground">Avg/member: {formatMoney(averageSharePerMember)}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Share Participation</td><td className="px-3 py-2 text-xs font-semibold">{shareParticipation.toFixed(1)}%</td><td className="px-3 py-2 text-xs text-muted-foreground">Members with shares: {membersWithShares}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Net Movement</td><td className={`px-3 py-2 text-xs font-semibold ${netMovement >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatMoney(netMovement)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Purchases - redemptions + adjustments</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Purchases</td><td className="px-3 py-2 text-xs font-semibold text-emerald-700">{formatMoney(purchases)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Latest page totals</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Redemptions</td><td className="px-3 py-2 text-xs font-semibold text-red-700">{formatMoney(redemptions)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Latest page totals</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Adjustments</td><td className="px-3 py-2 text-xs font-semibold">{formatMoney(adjustments)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Transactions loaded: {transactions.length} ({purchaseCount} purchases, {redemptionCount} redemptions)</td></tr>
+                      </tbody>
+                    </table>
                   </div>
                 </section>
 
@@ -306,24 +270,22 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Decision markers for equity health and ownership quality.
                     </p>
-                    <div className="mt-4 space-y-3">
-                      {decisionSignals.map((signal) => (
-                        <article
-                          key={signal.name}
-                          className="rounded-md border bg-background px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium">{signal.name}</p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(signal.status)}`}
-                            >
-                              {signal.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-lg font-semibold">{signal.value}</p>
-                          <p className="text-xs text-muted-foreground">Target: {signal.target}</p>
-                        </article>
-                      ))}
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr><th className="px-3 py-2">Signal</th><th className="px-3 py-2">Value</th><th className="px-3 py-2">Target</th><th className="px-3 py-2">Status</th></tr>
+                        </thead>
+                        <tbody>
+                          {decisionSignals.map((signal) => (
+                            <tr key={signal.name} className="border-t">
+                              <td className="px-3 py-2 text-xs">{signal.name}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{signal.value}</td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">{signal.target}</td>
+                              <td className="px-3 py-2 text-xs"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${signalTone(signal.status)}`}>{signal.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
 
@@ -332,29 +294,27 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Concentration view across highest equity contributors.
                     </p>
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[560px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr><th className="px-3 py-2">Member</th><th className="px-3 py-2">Balance</th><th className="px-3 py-2">Share</th></tr>
+                        </thead>
+                        <tbody>
                       {topHolders.map((holder) => {
                         const holderShare =
                           totalShareCapitalNumber > 0
                             ? (holder.balance / totalShareCapitalNumber) * 100
                             : 0;
                         return (
-                          <article
-                            key={holder.memberId}
-                            className="rounded-md border bg-background px-4 py-3"
-                          >
-                            <p className="text-sm font-medium">{holder.label}</p>
-                            <div className="mt-1 flex items-center justify-between text-sm">
-                              <span className="font-semibold">
-                                {formatMoney(holder.balance)}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {holderShare.toFixed(1)}%
-                              </span>
-                            </div>
-                          </article>
+                          <tr key={holder.memberId} className="border-t">
+                            <td className="px-3 py-2 text-xs">{holder.label}</td>
+                            <td className="px-3 py-2 text-xs font-semibold">{formatMoney(holder.balance)}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{holderShare.toFixed(1)}%</td>
+                          </tr>
                         );
                       })}
+                        </tbody>
+                      </table>
                     </div>
                     <p className="mt-3 text-xs text-muted-foreground">
                       Top-5 concentration: {topHolderConcentration.toFixed(1)}%
@@ -368,25 +328,21 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Quick stress checks for capital planning conversations.
                     </p>
-                    <div className="mt-4 space-y-3">
-                      {scenarioCards.map((scenario) => (
-                        <article
-                          key={scenario.label}
-                          className="rounded-md border bg-background px-4 py-3"
-                        >
-                          <p className="text-sm font-medium">{scenario.label}</p>
-                          <p className="mt-1 text-lg font-semibold">
-                            {formatMoney(scenario.projectedCapital)}
-                          </p>
-                          <p
-                            className={`text-xs ${
-                              scenario.impact >= 0 ? "text-emerald-700" : "text-red-700"
-                            }`}
-                          >
-                            Impact: {formatMoney(scenario.impact)}
-                          </p>
-                        </article>
-                      ))}
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr><th className="px-3 py-2">Scenario</th><th className="px-3 py-2">Projected Capital</th><th className="px-3 py-2">Impact</th></tr>
+                        </thead>
+                        <tbody>
+                          {scenarioCards.map((scenario) => (
+                            <tr key={scenario.label} className="border-t">
+                              <td className="px-3 py-2 text-xs">{scenario.label}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{formatMoney(scenario.projectedCapital)}</td>
+                              <td className={`px-3 py-2 text-xs ${scenario.impact >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatMoney(scenario.impact)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
 
@@ -395,26 +351,26 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Current recommendations based on share-capital signals.
                     </p>
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
                       {actionQueue.length > 0 ? (
-                        actionQueue.map((action) => (
-                          <article
-                            key={action.title}
-                            className="rounded-md border bg-background px-4 py-3"
-                          >
-                            <p className="text-sm font-semibold">{action.title}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{action.detail}</p>
-                          </article>
-                        ))
+                        <table className="w-full min-w-[520px] text-sm">
+                          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                            <tr><th className="px-3 py-2">Action</th><th className="px-3 py-2">Detail</th></tr>
+                          </thead>
+                          <tbody>
+                            {actionQueue.map((action) => (
+                              <tr key={action.title} className="border-t">
+                                <td className="px-3 py-2 text-xs font-semibold">{action.title}</td>
+                                <td className="px-3 py-2 text-xs text-muted-foreground">{action.detail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       ) : (
-                        <article className="rounded-md border bg-background px-4 py-3">
-                          <p className="text-sm font-semibold text-emerald-700">
-                            No immediate intervention flags.
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Share performance is within current policy thresholds.
-                          </p>
-                        </article>
+                        <div className="px-4 py-3">
+                          <p className="text-sm font-semibold text-emerald-700">No immediate intervention flags.</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Share performance is within current policy thresholds.</p>
+                        </div>
                       )}
                     </div>
                   </section>

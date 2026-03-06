@@ -140,59 +140,25 @@ export default async function SavingsPage({
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Members</p>
-                      <p className="mt-1 text-2xl font-bold">{totalMembers}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Active: {activeMembers}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Savings Pool</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        {formatMoney(totalSavingsPool.toString())}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Members with balance: {membersWithSavings}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Savings Participation</p>
-                      <p className="mt-1 text-2xl font-bold">{savingsParticipation.toFixed(1)}%</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Across all registered members</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Deposits</p>
-                      <p className="mt-1 text-2xl font-bold text-emerald-700">
-                        {formatMoney(totalDeposits)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Transactions: {depositTransactions.length}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Withdrawals</p>
-                      <p className="mt-1 text-2xl font-bold text-red-700">
-                        {formatMoney(totalWithdrawals)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Transactions: {withdrawalTransactions.length}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Savings Flow</p>
-                      <p
-                        className={`mt-1 text-2xl font-bold ${
-                          netSavingsFlow >= 0 ? "text-emerald-700" : "text-red-700"
-                        }`}
-                      >
-                        {formatMoney(netSavingsFlow)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Avg transaction: {formatMoney(averageTxn)}
-                      </p>
-                    </article>
+                  <h2 className="text-lg font-semibold">Savings Snapshot</h2>
+                  <div className="mt-4 overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2">Metric</th>
+                          <th className="px-3 py-2">Value</th>
+                          <th className="px-3 py-2">Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Total Members</td><td className="px-3 py-2 text-xs font-semibold">{totalMembers}</td><td className="px-3 py-2 text-xs text-muted-foreground">Active: {activeMembers}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Savings Pool</td><td className="px-3 py-2 text-xs font-semibold">{formatMoney(totalSavingsPool.toString())}</td><td className="px-3 py-2 text-xs text-muted-foreground">Members with balance: {membersWithSavings}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Savings Participation</td><td className="px-3 py-2 text-xs font-semibold">{savingsParticipation.toFixed(1)}%</td><td className="px-3 py-2 text-xs text-muted-foreground">Across all registered members</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Deposits</td><td className="px-3 py-2 text-xs font-semibold text-emerald-700">{formatMoney(totalDeposits)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Transactions: {depositTransactions.length}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Withdrawals</td><td className="px-3 py-2 text-xs font-semibold text-red-700">{formatMoney(totalWithdrawals)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Transactions: {withdrawalTransactions.length}</td></tr>
+                        <tr className="border-t"><td className="px-3 py-2 text-xs">Net Savings Flow</td><td className={`px-3 py-2 text-xs font-semibold ${netSavingsFlow >= 0 ? "text-emerald-700" : "text-red-700"}`}>{formatMoney(netSavingsFlow)}</td><td className="px-3 py-2 text-xs text-muted-foreground">Avg transaction: {formatMoney(averageTxn)}</td></tr>
+                      </tbody>
+                    </table>
                   </div>
                 </section>
 

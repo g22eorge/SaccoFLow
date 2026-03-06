@@ -34,6 +34,27 @@ enum LoanStatus {
   DEFAULTED
 }
 
+enum ExternalCapitalType {
+  DONATION
+  GRANT
+  EXTERNAL_FUNDING
+  ADJUSTMENT
+  REVERSAL
+  OTHER
+}
+
+enum ExternalCapitalStatus {
+  RECORDED
+  VERIFIED
+  POSTED
+}
+
+enum VerificationLevel {
+  BASIC
+  ENHANCED
+  STRICT
+}
+
 model Sacco {
   id          String              @id @default(cuid())
   name        String
@@ -48,6 +69,7 @@ model Sacco {
   loanProducts LoanProduct[]
   repayments  LoanRepayment[]
   ledger      LedgerEntry[]
+  externalCapitalTxns ExternalCapitalTransaction[]
   auditLogs   AuditLog[]
 }
 
@@ -73,6 +95,8 @@ model AppUser {
   updatedAt  DateTime   @updatedAt
   sacco      Sacco      @relation(fields: [saccoId], references: [id], onDelete: Cascade)
   auditLogs  AuditLog[]
+  verifiedExternalCapitalTxns ExternalCapitalTransaction[] @relation("ExternalCapitalVerifiedBy")
+  postedExternalCapitalTxns ExternalCapitalTransaction[]   @relation("ExternalCapitalPostedBy")
 
   @@index([saccoId])
   @@index([email])
@@ -208,6 +232,43 @@ model AuditLog {
   sacco      Sacco     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
 
   @@index([saccoId, createdAt])
+}
+
+model ExternalCapitalTransaction {
+  id         String              @id @default(cuid())
+  saccoId    String
+  type       ExternalCapitalType @default(DONATION)
+  amount     Decimal
+  currency   String              @default("UGX")
+  fxRate     Decimal             @default(1)
+  baseAmount Decimal
+  source     String
+  allocationBucket String?
+  reference  String?
+  documentUrl String?
+  note       String?
+  verificationLevel VerificationLevel @default(BASIC)
+  amlFlag    Boolean             @default(false)
+  isLargeInflow Boolean          @default(false)
+  status     ExternalCapitalStatus @default(RECORDED)
+  verifiedById String?
+  verifiedAt DateTime?
+  postedById String?
+  postedAt   DateTime?
+  correctionOfId String?
+  correctionReason String?
+  receivedAt DateTime            @default(now())
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  sacco      Sacco               @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  verifiedBy AppUser?            @relation("ExternalCapitalVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  postedBy   AppUser?            @relation("ExternalCapitalPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
+  correctionOf ExternalCapitalTransaction? @relation("ExternalCapitalCorrection", fields: [correctionOfId], references: [id], onDelete: SetNull)
+  corrections ExternalCapitalTransaction[] @relation("ExternalCapitalCorrection")
+
+  @@index([saccoId, receivedAt])
+  @@index([saccoId, status, receivedAt])
+  @@index([saccoId, type, receivedAt])
 }
 
 model AppSetting {

@@ -18,6 +18,7 @@ export function SavingsTransactionsPanel({
 }: {
   transactions: TransactionRow[];
 }) {
+  const [viewMode, setViewMode] = useState<"CARDS" | "TABLE">("TABLE");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "DEPOSIT" | "WITHDRAWAL">("ALL");
   const [sortBy, setSortBy] = useState<"latest" | "highest">("latest");
@@ -135,34 +136,81 @@ export function SavingsTransactionsPanel({
         >
           Export CSV
         </button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {visibleTransactions.map((transaction) => (
-          <article
-            key={transaction.id}
-            className="rounded-lg border bg-background p-4"
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("TABLE")}
+            className={`rounded-md border px-2.5 py-1 text-xs ${
+              viewMode === "TABLE" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+            }`}
           >
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-semibold">{transaction.memberLabel}</p>
-              <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
-                {transaction.type}
-              </span>
-            </div>
-            <p className="mt-2 text-sm">
-              Amount:{" "}
-              <span className="font-semibold">
-                {formatMoney(transaction.amount)}
-              </span>
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Note: {transaction.note ?? "-"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatDateTimeUtc(transaction.createdAt)}
-            </p>
-          </article>
-        ))}
+            Table
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("CARDS")}
+            className={`rounded-md border px-2.5 py-1 text-xs ${
+              viewMode === "CARDS" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+            }`}
+          >
+            Cards
+          </button>
+        </div>
       </div>
+      {viewMode === "CARDS" ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {visibleTransactions.map((transaction) => (
+            <article
+              key={transaction.id}
+              className="rounded-lg border bg-background p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold">{transaction.memberLabel}</p>
+                <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
+                  {transaction.type}
+                </span>
+              </div>
+              <p className="mt-2 text-sm">
+                Amount:{" "}
+                <span className="font-semibold">
+                  {formatMoney(transaction.amount)}
+                </span>
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Note: {transaction.note ?? "-"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatDateTimeUtc(transaction.createdAt)}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Member</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Amount</th>
+                <th className="px-3 py-2">Note</th>
+                <th className="px-3 py-2">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTransactions.map((transaction) => (
+                <tr key={transaction.id} className="border-t hover:bg-muted/40">
+                  <td className="px-3 py-2 text-xs">{transaction.memberLabel}</td>
+                  <td className="px-3 py-2 text-xs font-semibold">{transaction.type}</td>
+                  <td className="px-3 py-2 text-xs">{formatMoney(transaction.amount)}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{transaction.note ?? "-"}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{formatDateTimeUtc(transaction.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {visibleTransactions.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
           No transactions match this filter.

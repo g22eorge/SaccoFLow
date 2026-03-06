@@ -537,43 +537,49 @@ export default async function LoansPage({
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Open Loan Book</p>
-                      <p className="mt-1 text-2xl font-bold">{openLoans.length}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Approved: {approvedLoans.length} | Active: {activeLoans.length}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Outstanding</p>
-                      <p className="mt-1 text-2xl font-bold">{formatMoney(totalOutstanding)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Principal only: {formatMoney(outstandingPrincipal)}
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Average Loan Ticket</p>
-                      <p className="mt-1 text-2xl font-bold">{formatMoney(averageTicket)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Across all loaded loans</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Pending Approvals</p>
-                      <p className="mt-1 text-2xl font-bold">{pendingLoans.length}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Target {"<= 15"}</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Default Rate</p>
-                      <p className="mt-1 text-2xl font-bold">{portfolioAtRiskByCount.toFixed(1)}%</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {defaultedLoans.length} defaulted of {openLoans.length} open
-                      </p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Overdue Open Loans</p>
-                      <p className="mt-1 text-2xl font-bold">{overdueOpenLoans.length}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{overdueRatio.toFixed(1)}% of open book</p>
-                    </article>
+                  <h2 className="text-lg font-semibold">Portfolio Snapshot</h2>
+                  <div className="mt-4 overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2">Metric</th>
+                          <th className="px-3 py-2">Value</th>
+                          <th className="px-3 py-2">Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Open Loan Book</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{openLoans.length}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">Approved: {approvedLoans.length} | Active: {activeLoans.length}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Total Outstanding</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{formatMoney(totalOutstanding)}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">Principal only: {formatMoney(outstandingPrincipal)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Average Loan Ticket</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{formatMoney(averageTicket)}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">Across all loaded loans</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Pending Approvals</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{pendingLoans.length}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">Target {"<= 15"}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Default Rate</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{portfolioAtRiskByCount.toFixed(1)}%</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{defaultedLoans.length} defaulted of {openLoans.length} open</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Overdue Open Loans</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{overdueOpenLoans.length}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{overdueRatio.toFixed(1)}% of open book</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </section>
 
@@ -583,24 +589,31 @@ export default async function LoansPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Target-vs-actual risk checks for faster credit decisions.
                     </p>
-                    <div className="mt-4 space-y-3">
-                      {decisionSignals.map((signal) => (
-                        <article
-                          key={signal.name}
-                          className="rounded-md border bg-background px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium">{signal.name}</p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(signal.status)}`}
-                            >
-                              {signal.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-lg font-semibold">{signal.value}</p>
-                          <p className="text-xs text-muted-foreground">Target: {signal.target}</p>
-                        </article>
-                      ))}
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2">Signal</th>
+                            <th className="px-3 py-2">Value</th>
+                            <th className="px-3 py-2">Target</th>
+                            <th className="px-3 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {decisionSignals.map((signal) => (
+                            <tr key={signal.name} className="border-t">
+                              <td className="px-3 py-2 text-xs">{signal.name}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{signal.value}</td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">{signal.target}</td>
+                              <td className="px-3 py-2 text-xs">
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${signalTone(signal.status)}`}>
+                                  {signal.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
 
@@ -609,21 +622,25 @@ export default async function LoansPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Largest outstanding positions requiring close monitoring.
                     </p>
-                    <div className="mt-4 space-y-2">
-                      {topExposures.map((loan) => (
-                        <article
-                          key={loan.id}
-                          className="rounded-md border bg-background px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium">{loan.memberName}</p>
-                            <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-semibold">
-                              {loan.status}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-lg font-semibold">{formatMoney(loan.exposure)}</p>
-                        </article>
-                      ))}
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2">Member</th>
+                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Exposure</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {topExposures.map((loan) => (
+                            <tr key={loan.id} className="border-t">
+                              <td className="px-3 py-2 text-xs">{loan.memberName}</td>
+                              <td className="px-3 py-2 text-xs">{loan.status}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{formatMoney(loan.exposure)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
                 </div>
@@ -634,22 +651,28 @@ export default async function LoansPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Stress checks for credit risk and recovery planning.
                     </p>
-                    <div className="mt-4 space-y-3">
-                      {scenarioCards.map((scenario) => (
-                        <article
-                          key={scenario.label}
-                          className="rounded-md border bg-background px-4 py-3"
-                        >
-                          <p className="text-sm font-medium">{scenario.label}</p>
-                          <p className="mt-1 text-lg font-semibold">
-                            {formatMoney(scenario.projectedLoss)}
-                          </p>
-                          <p className={`text-xs ${scenario.impact >= 0 ? "text-red-700" : "text-emerald-700"}`}>
-                            Impact: {scenario.impact > 0 ? "+" : ""}
-                            {formatMoney(scenario.impact)}
-                          </p>
-                        </article>
-                      ))}
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2">Scenario</th>
+                            <th className="px-3 py-2">Projected Loss</th>
+                            <th className="px-3 py-2">Impact</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {scenarioCards.map((scenario) => (
+                            <tr key={scenario.label} className="border-t">
+                              <td className="px-3 py-2 text-xs">{scenario.label}</td>
+                              <td className="px-3 py-2 text-xs font-semibold">{formatMoney(scenario.projectedLoss)}</td>
+                              <td className={`px-3 py-2 text-xs ${scenario.impact >= 0 ? "text-red-700" : "text-emerald-700"}`}>
+                                {scenario.impact > 0 ? "+" : ""}
+                                {formatMoney(scenario.impact)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
 
@@ -658,32 +681,33 @@ export default async function LoansPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Recommended interventions from the current loan risk posture.
                     </p>
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 overflow-x-auto rounded-lg border">
                       {actionQueue.length > 0 ? (
-                        actionQueue.map((action) => (
-                          <article
-                            key={action.title}
-                            className="rounded-md border bg-background px-4 py-3"
-                          >
-                            <p className="text-sm font-semibold">{action.title}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{action.detail}</p>
-                            <Link
-                              href={action.href}
-                              className="mt-2 inline-block text-xs text-[#cc5500]"
-                            >
-                              Open recommendation
-                            </Link>
-                          </article>
-                        ))
+                        <table className="w-full min-w-[520px] text-sm">
+                          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                            <tr>
+                              <th className="px-3 py-2">Action</th>
+                              <th className="px-3 py-2">Detail</th>
+                              <th className="px-3 py-2">Link</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {actionQueue.map((action) => (
+                              <tr key={action.title} className="border-t">
+                                <td className="px-3 py-2 text-xs font-semibold">{action.title}</td>
+                                <td className="px-3 py-2 text-xs text-muted-foreground">{action.detail}</td>
+                                <td className="px-3 py-2 text-xs">
+                                  <Link href={action.href} className="text-[#cc5500]">Open recommendation</Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       ) : (
-                        <article className="rounded-md border bg-background px-4 py-3">
-                          <p className="text-sm font-semibold text-emerald-700">
-                            No immediate intervention flags.
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Credit portfolio is within current policy thresholds.
-                          </p>
-                        </article>
+                        <div className="px-4 py-3">
+                          <p className="text-sm font-semibold text-emerald-700">No immediate intervention flags.</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Credit portfolio is within current policy thresholds.</p>
+                        </div>
                       )}
                     </div>
                   </section>
@@ -701,23 +725,33 @@ export default async function LoansPage({
                       {policyLabel}
                     </span>
                   </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Green Min Score</p>
-                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.greenMinScore}</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Capacity Multiplier</p>
-                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.creditCapacityMultiplier}x</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Min Repayments</p>
-                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.minRepaymentCount}</p>
-                    </article>
-                    <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Warning Watch Window</p>
-                      <p className="mt-1 text-lg font-semibold">{settings.autoDecision.earlyWarningWatchDays} days</p>
-                    </article>
+                  <div className="mt-4 overflow-x-auto rounded-lg border">
+                    <table className="w-full min-w-[620px] text-sm">
+                      <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2">Setting</th>
+                          <th className="px-3 py-2">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Green Min Score</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{settings.autoDecision.greenMinScore}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Capacity Multiplier</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{settings.autoDecision.creditCapacityMultiplier}x</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Min Repayments</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{settings.autoDecision.minRepaymentCount}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-3 py-2 text-xs">Warning Watch Window</td>
+                          <td className="px-3 py-2 text-xs font-semibold">{settings.autoDecision.earlyWarningWatchDays} days</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
                     Change this under Settings → Lending → Auto Decisions presets.
@@ -730,37 +764,33 @@ export default async function LoansPage({
                   <p className="mt-1 text-sm text-muted-foreground">
                     Heuristic risk engine highlights accounts likely to slip before default.
                   </p>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 overflow-x-auto rounded-lg border">
                     {earlyWarnings.length > 0 ? (
-                      earlyWarnings.map((warning) => (
-                        <article key={warning.loanId} className="rounded-md border bg-background px-4 py-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold">{warning.memberName}</p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                warning.severity === "High"
-                                  ? "bg-red-50 text-red-700"
-                                  : warning.severity === "Medium"
-                                    ? "bg-amber-50 text-amber-700"
-                                    : "bg-blue-50 text-blue-700"
-                              }`}
-                            >
-                              {warning.severity}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">Signal: {warning.reason}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Recommended action: {warning.recommendation}
-                          </p>
-                        </article>
-                      ))
+                      <table className="w-full min-w-[720px] text-sm">
+                        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2">Member</th>
+                            <th className="px-3 py-2">Severity</th>
+                            <th className="px-3 py-2">Signal</th>
+                            <th className="px-3 py-2">Recommended Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {earlyWarnings.map((warning) => (
+                            <tr key={warning.loanId} className="border-t">
+                              <td className="px-3 py-2 text-xs font-semibold">{warning.memberName}</td>
+                              <td className="px-3 py-2 text-xs">{warning.severity}</td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">{warning.reason}</td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">{warning.recommendation}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     ) : (
-                      <article className="rounded-md border bg-background px-4 py-3">
+                      <div className="px-4 py-3">
                         <p className="text-sm font-semibold text-emerald-700">No early warning flags right now.</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Active loans are currently within expected repayment trajectory.
-                        </p>
-                      </article>
+                        <p className="mt-1 text-xs text-muted-foreground">Active loans are currently within expected repayment trajectory.</p>
+                      </div>
                     )}
                   </div>
                   </section>

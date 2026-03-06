@@ -86,6 +86,18 @@ const navMainItems: SidebarItem[] = [
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"],
     },
     {
+      title: "External Capital",
+      url: "/dashboard/external-capital",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"],
+    },
+    {
+      title: "AI Insights",
+      url: "/dashboard/ai-insights",
+      icon: IconReport,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
+    },
+    {
       title: "Savings",
       url: "/dashboard/savings",
       icon: IconCash,

@@ -40,7 +40,7 @@ export default async function Page() {
 
   const equity = toNumber(dashboard.kpis.totalShareCapital);
   const savingsPool = toNumber(dashboard.kpis.savingsBalance);
-  const externalCapital = 0;
+  const externalCapital = toNumber(dashboard.kpis.externalCapital ?? "0");
   const capitalBase = equity + savingsPool + externalCapital;
   const equityShare = capitalBase > 0 ? (equity / capitalBase) * 100 : 0;
   const savingsShare = capitalBase > 0 ? (savingsPool / capitalBase) * 100 : 0;
@@ -207,6 +207,41 @@ export default async function Page() {
                     Capital health, portfolio risk, and action queues in one snapshot.
                   </p>
                 </div>
+
+                <section className="rounded-lg border bg-card p-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold">Operator Playbook</h2>
+                    <span className="rounded-full border border-[#cc5500] bg-orange-50 px-2 py-0.5 text-xs font-semibold text-[#cc5500]">
+                      Quick Start
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Step 1</p>
+                      <p className="mt-1 text-sm font-semibold">Clear pending approvals</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Start with loans waiting decision to unblock operations.</p>
+                      <Link href="/dashboard/loans?status=PENDING" className="mt-2 inline-block text-xs text-[#cc5500]">
+                        Open approvals queue
+                      </Link>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Step 2</p>
+                      <p className="mt-1 text-sm font-semibold">Act on collection risk</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Prioritize high-risk cases before they roll into defaults.</p>
+                      <Link href="/dashboard/collections" className="mt-2 inline-block text-xs text-[#cc5500]">
+                        Open collections workbench
+                      </Link>
+                    </article>
+                    <article className="rounded-md border bg-background px-4 py-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Step 3</p>
+                      <p className="mt-1 text-sm font-semibold">Review policy posture</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Validate risk and approval settings before new disbursements.</p>
+                      <Link href="/dashboard/settings" className="mt-2 inline-block text-xs text-[#cc5500]">
+                        Open settings
+                      </Link>
+                    </article>
+                  </div>
+                </section>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                   <article className="rounded-lg border bg-card p-5">

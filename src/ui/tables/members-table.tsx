@@ -15,6 +15,16 @@ type MemberRow = {
   savingsBalance?: string;
 };
 
+const memberStatusChipClass = (status: string) => {
+  if (status === "ACTIVE") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (status === "INACTIVE") {
+    return "border-zinc-200 bg-zinc-50 text-zinc-700";
+  }
+  return "border-orange-200 bg-orange-50 text-[#cc5500]";
+};
+
 export function MembersTable({ members }: { members: MemberRow[] }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -171,158 +181,135 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
           </select>
         </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {visibleMembers.map((member) => {
-          const isEditing = editingId === member.id;
-          const isBusy = loadingId === member.id;
-          return (
-            <article
-              key={member.id}
-              className="rounded-xl border border-border bg-background p-4"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {member.memberNumber}
-                  </p>
-                  {isEditing ? (
-                    <input
-                      value={draft.fullName}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          fullName: event.target.value,
-                        }))
-                      }
-                      className="mt-2 w-full rounded border border-border bg-background px-2 py-1"
-                    />
-                  ) : (
-                    <p className="mt-1 font-semibold">{member.fullName}</p>
-                  )}
-                </div>
-                <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-semibold">
-                  {isEditing ? draft.status : member.status}
-                </span>
-              </div>
-
-              <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-                <p>
-                  Phone:{" "}
-                  {isEditing ? (
-                    <input
-                      value={draft.phone}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          phone: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
-                    />
-                  ) : (
-                    <span className="text-foreground">
-                      {member.phone ?? "-"}
-                    </span>
-                  )}
-                </p>
-                <p>
-                  Email:{" "}
-                  {isEditing ? (
-                    <input
-                      value={draft.email}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          email: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
-                    />
-                  ) : (
-                    <span className="text-foreground">
-                      {member.email ?? "-"}
-                    </span>
-                  )}
-                </p>
-                <p>
-                  Savings:{" "}
-                  <span className="font-semibold text-foreground">
-                    {member.savingsBalance
-                      ? formatMoney(member.savingsBalance)
-                      : "-"}
-                  </span>
-                </p>
-              </div>
-
-              {isEditing ? (
-                <div className="mt-3">
-                  <label className="space-y-1 text-xs text-muted-foreground">
-                    <span className="block">Status</span>
-                    <select
-                      value={draft.status}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          status: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground"
-                    >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                  </label>
-                </div>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {isEditing ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => saveEdit(member.id)}
-                      disabled={isBusy}
-                      className="rounded-lg bg-accent px-2 py-1 text-white hover:bg-accent-strong disabled:opacity-60"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                      className="rounded-lg border border-border px-2 py-1"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      href={`/dashboard/members/${member.id}`}
-                      className="rounded-lg border border-border px-2 py-1"
-                    >
-                      Snapshot
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(member)}
-                      className="rounded-lg border border-border px-2 py-1"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeMember(member.id)}
-                      disabled={isBusy}
-                      className="rounded-lg border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            </article>
-          );
-        })}
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[1080px] text-sm">
+          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">Member #</th>
+              <th className="px-3 py-2">Full Name</th>
+              <th className="px-3 py-2">Phone</th>
+              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Savings</th>
+              <th className="px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleMembers.map((member) => {
+              const isEditing = editingId === member.id;
+              const isBusy = loadingId === member.id;
+              return (
+                <tr key={member.id} className="border-t align-top hover:bg-muted/30">
+                  <td className="px-3 py-2 text-xs font-semibold">{member.memberNumber}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {isEditing ? (
+                      <input
+                        value={draft.fullName}
+                        onChange={(event) =>
+                          setDraft((prev) => ({ ...prev, fullName: event.target.value }))
+                        }
+                        className="w-full rounded border border-border bg-background px-2 py-1"
+                      />
+                    ) : (
+                      member.fullName
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {isEditing ? (
+                      <input
+                        value={draft.phone}
+                        onChange={(event) =>
+                          setDraft((prev) => ({ ...prev, phone: event.target.value }))
+                        }
+                        className="w-full rounded border border-border bg-background px-2 py-1 text-foreground"
+                      />
+                    ) : (
+                      member.phone ?? "-"
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {isEditing ? (
+                      <input
+                        value={draft.email}
+                        onChange={(event) =>
+                          setDraft((prev) => ({ ...prev, email: event.target.value }))
+                        }
+                        className="w-full rounded border border-border bg-background px-2 py-1 text-foreground"
+                      />
+                    ) : (
+                      member.email ?? "-"
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {isEditing ? (
+                      <select
+                        value={draft.status}
+                        onChange={(event) =>
+                          setDraft((prev) => ({ ...prev, status: event.target.value }))
+                        }
+                        className="rounded border border-border bg-background px-2 py-1"
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                      </select>
+                    ) : (
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${memberStatusChipClass(member.status)}`}>
+                        {member.status}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs font-semibold">
+                    {member.savingsBalance ? formatMoney(member.savingsBalance) : "-"}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    <div className="flex flex-wrap gap-2">
+                      {isEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => saveEdit(member.id)}
+                            disabled={isBusy}
+                            className="rounded-lg bg-accent px-2 py-1 text-white hover:bg-accent-strong disabled:opacity-60"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="rounded-lg border border-border px-2 py-1"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Link href={`/dashboard/members/${member.id}`} className="rounded-lg border border-border px-2 py-1">
+                            Snapshot
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(member)}
+                            className="rounded-lg border border-border px-2 py-1"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeMember(member.id)}
+                            disabled={isBusy}
+                            className="rounded-lg border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
       {visibleMembers.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">

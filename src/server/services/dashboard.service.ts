@@ -4,6 +4,60 @@ import { formatMoney } from "@/src/lib/money";
 import { LoanLifecycleService } from "@/src/server/services/loan-lifecycle.service";
 import { SharesService } from "@/src/server/services/shares.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
+
+type DashboardMonitorsResult = {
+  generatedAt: Date;
+  kpis: {
+    membersTotal: number;
+    membersActive: number;
+    loansOpen: number;
+    loansCleared: number;
+    pendingApprovals: number;
+    pendingLoanRequests: number;
+    pendingMemberRequests: number;
+    externalCapital: string;
+    outstandingPrincipal: string;
+    savingsBalance: string;
+    totalShareCapital: string;
+    lendableFunds: string;
+    capitalSupportedCapacity: string;
+    totalLendingHeadroom: string;
+  };
+  monitors: {
+    portfolioRiskPercent: number;
+    defaultedLoans: number;
+    auditEvents24h: number;
+    monthlySavingsNet: string;
+    monthlyLoanNet: string;
+    monthlyDisbursed: string;
+    monthlyRepaid: string;
+    pendingDisbursements: string;
+    liquidityReserveAmount: string;
+    liquidityReserveRatioPercent: number;
+    deployableShareCapital: string;
+    deployableShareCapitalRatioPercent: number;
+    par30Percent: number;
+    par90Percent: number;
+    concentrationTop5Percent: number;
+    liquidityCoveragePercent: number;
+    recoveryRate30d: number;
+  };
+  recentActivity: Array<{
+    id: string;
+    when: Date;
+    label: string;
+  }>;
+};
+
+const DASHBOARD_CACHE_TTL_MS = 20_000;
+const dashboardMonitorsCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    value: DashboardMonitorsResult;
+  }
+>();
 
 const toDecimal = (value: Prisma.Decimal | null | undefined) =>
   value ?? new Prisma.Decimal(0);
@@ -13,6 +67,11 @@ const toCurrencyString = (value: Prisma.Decimal | null | undefined) =>
 
 export const DashboardService = {
   async monitors(saccoId: string) {
+    const cached = dashboardMonitorsCache.get(saccoId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
     await LoanLifecycleService.reconcileSacco(saccoId);
     const now = new Date();
     const dayAgo = new Date(now);
@@ -46,6 +105,7 @@ export const DashboardService = {
       par30ExposureAgg,
       par90ExposureAgg,
       memberExposureBuckets,
+      externalCapital,
     ] = await Promise.all([
       SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
@@ -193,6 +253,7 @@ export const DashboardService = {
           outstandingPenalty: true,
         },
       }),
+      ExternalCapitalService.total(saccoId),
     ]);
 
     const pendingMemberRequests = memberRequestLogs.reduce((count, log) => {
@@ -304,7 +365,7 @@ export const DashboardService = {
       .sort((a, b) => b.when.getTime() - a.when.getTime())
       .slice(0, 8);
 
-    return {
+    const result: DashboardMonitorsResult = {
       generatedAt: now,
       kpis: {
         membersTotal: memberTotal,
@@ -314,6 +375,7 @@ export const DashboardService = {
         pendingApprovals,
         pendingLoanRequests,
         pendingMemberRequests,
+        externalCapital: formatMoney(externalCapital.toFixed(2)),
         outstandingPrincipal: toCurrencyString(
           outstandingAgg._sum.outstandingPrincipal,
         ),
@@ -345,5 +407,12 @@ export const DashboardService = {
       },
       recentActivity,
     };
+
+    dashboardMonitorsCache.set(saccoId, {
+      expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS,
+      value: result,
+    });
+
+    return result;
   },
 };

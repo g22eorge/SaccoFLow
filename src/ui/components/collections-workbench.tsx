@@ -35,6 +35,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"CARDS" | "TABLE">("TABLE");
 
   const visibleCases = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -109,42 +110,99 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
               <option value="Watch">Watch</option>
             </select>
           </div>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMode("TABLE")}
+              className={`rounded-md border px-2.5 py-1 text-xs ${
+                viewMode === "TABLE" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+              }`}
+            >
+              Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("CARDS")}
+              className={`rounded-md border px-2.5 py-1 text-xs ${
+                viewMode === "CARDS" ? "border-[#cc5500] bg-orange-50 text-[#cc5500]" : "border-border"
+              }`}
+            >
+              Cards
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visibleCases.map((entry) => (
-            <article key={entry.loanId} className="rounded-md border bg-background px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{entry.memberName}</p>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    entry.severity === "High"
-                      ? "bg-red-50 text-red-700"
-                      : entry.severity === "Medium"
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-blue-50 text-blue-700"
-                  }`}
-                >
-                  {entry.severity}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">Loan {entry.loanId.slice(0, 8)} | {entry.status}</p>
-              <p className="mt-1 text-sm">Exposure: {formatMoney(entry.exposure)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Signal: {entry.reason}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Action: {entry.recommendation}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Due: {entry.dueAt ? formatDateTimeUtc(entry.dueAt) : "-"}
-              </p>
-              {entry.lastActionAt ? (
+        {viewMode === "CARDS" ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {visibleCases.map((entry) => (
+              <article key={entry.loanId} className="rounded-md border bg-background px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">{entry.memberName}</p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      entry.severity === "High"
+                        ? "bg-red-50 text-red-700"
+                        : entry.severity === "Medium"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-blue-50 text-blue-700"
+                    }`}
+                  >
+                    {entry.severity}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Loan {entry.loanId.slice(0, 8)} | {entry.status}</p>
+                <p className="mt-1 text-sm">Exposure: {formatMoney(entry.exposure)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Signal: {entry.reason}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Action: {entry.recommendation}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Last action: {entry.lastActionType} on {formatDateTimeUtc(entry.lastActionAt)}
+                  Due: {entry.dueAt ? formatDateTimeUtc(entry.dueAt) : "-"}
                 </p>
-              ) : (
-                <p className="mt-1 text-xs text-amber-700">No action logged yet.</p>
-              )}
-            </article>
-          ))}
-        </div>
+                {entry.lastActionAt ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Last action: {entry.lastActionType} on {formatDateTimeUtc(entry.lastActionAt)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-amber-700">No action logged yet.</p>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Member</th>
+                  <th className="px-3 py-2">Severity</th>
+                  <th className="px-3 py-2">Exposure</th>
+                  <th className="px-3 py-2">Signal</th>
+                  <th className="px-3 py-2">Recommended Action</th>
+                  <th className="px-3 py-2">Due</th>
+                  <th className="px-3 py-2">Last Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCases.map((entry) => (
+                  <tr key={entry.loanId} className="border-t hover:bg-muted/40">
+                    <td className="px-3 py-2 text-xs">{entry.memberName}</td>
+                    <td className="px-3 py-2 text-xs font-semibold">{entry.severity}</td>
+                    <td className="px-3 py-2 text-xs">{formatMoney(entry.exposure)}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{entry.reason}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{entry.recommendation}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {entry.dueAt ? formatDateTimeUtc(entry.dueAt) : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {entry.lastActionAt
+                        ? `${entry.lastActionType ?? "ACTION"} | ${formatDateTimeUtc(entry.lastActionAt)}`
+                        : "No action"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {visibleCases.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No collection cases match this filter.</p>
