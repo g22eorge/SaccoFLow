@@ -20,6 +20,8 @@
     "admin:create-platform-super": "bun run scripts/create-platform-super-admin.ts",
     "phase1:check": "bun run scripts/phase1-check.ts",
     "e2e:smoke": "bun run scripts/e2e-smoke.ts",
+    "auth:preprod:check": "bun run scripts/auth-preprod-check.ts",
+    "workflow:integrity:check": "bun run scripts/workflow-integrity-check.ts",
     "loans:reconcile": "bun run scripts/reconcile-overdue-loans.ts",
     "members:sync-existing": "bun run scripts/sync-existing-members.ts",
     "settings:backfill-auto-decision-balanced": "bun run scripts/backfill-auto-decision-balanced.ts"
