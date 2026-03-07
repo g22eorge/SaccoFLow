@@ -407,6 +407,7 @@ export const UsersService = {
       where: {
         role: "MEMBER",
         isActive: true,
+        saccoId: { not: null },
         ...(input.saccoId ? { saccoId: input.saccoId } : {}),
       },
       select: {
@@ -424,6 +425,10 @@ export const UsersService = {
     let failed = 0;
 
     for (const user of memberUsers) {
+      if (!user.saccoId) {
+        skipped += 1;
+        continue;
+      }
       const key = `${user.saccoId}:${user.email.toLowerCase()}`;
       if (processed.has(key)) {
         skipped += 1;

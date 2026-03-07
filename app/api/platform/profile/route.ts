@@ -65,6 +65,17 @@ export const PATCH = withApiHandler(async (request: Request) => {
     });
   }
 
+  const auditSaccoId =
+    current.saccoId ??
+    (await prisma.sacco.findFirst({
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    }))?.id;
+
+  if (!auditSaccoId) {
+    throw new Error("No SACCO context available for audit logging");
+  }
+
   if (payload.password) {
     const context = await auth.$context;
     const accounts = await context.internalAdapter.findAccounts(current.authUserId);
@@ -87,7 +98,7 @@ export const PATCH = withApiHandler(async (request: Request) => {
   }
 
   await AuditService.record({
-    saccoId: current.saccoId,
+    saccoId: auditSaccoId,
     actorId: current.id,
     action: "PLATFORM_PROFILE_UPDATE",
     entity: "PlatformProfile",

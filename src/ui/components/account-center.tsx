@@ -23,7 +23,7 @@ type ProfileData = {
   locale: string | null;
   avatarUrl: string | null;
   role: string;
-  saccoId: string;
+  saccoId: string | null;
   notifyEmail: boolean;
   notifySms: boolean;
   notifyWhatsapp: boolean;

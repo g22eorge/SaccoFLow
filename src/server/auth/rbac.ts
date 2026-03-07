@@ -155,7 +155,10 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
   if (String(appUser.role) === "PLATFORM_SUPER_ADMIN") {
     const assumedTenant = await getAssumedTenant();
     if (!assumedTenant) {
-      return appUser;
+      throw new UnauthorizedError(
+        "Platform account requires an assumed tenant session for SACCO access",
+        403,
+      );
     }
 
     const tenant = await prisma.sacco.findUnique({
@@ -164,7 +167,7 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
     });
 
     if (!tenant) {
-      return appUser;
+      throw new UnauthorizedError("Assumed tenant is no longer available", 403);
     }
 
     return {
@@ -204,7 +207,7 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
     });
   }
 
-  if (!tenantMap.has(appUser.saccoId)) {
+  if (appUser.saccoId && !tenantMap.has(appUser.saccoId)) {
     const primaryTenant = await prisma.sacco.findUnique({
       where: { id: appUser.saccoId },
       select: { id: true, code: true, name: true },
@@ -223,11 +226,11 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
   const requestedSaccoId = await getActiveSaccoId();
   const selectedTenant =
     (requestedSaccoId ? tenantMap.get(requestedSaccoId) : null) ??
-    tenantMap.get(appUser.saccoId) ??
+    (appUser.saccoId ? tenantMap.get(appUser.saccoId) : null) ??
     tenantOptions[0];
 
   if (!selectedTenant) {
-    return appUser;
+    throw new UnauthorizedError("No active SACCO access mapped to this account", 403);
   }
 
   return {

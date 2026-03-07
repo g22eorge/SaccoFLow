@@ -6,8 +6,6 @@ type CliOptions = {
   email?: string;
   password?: string;
   name?: string;
-  saccoCode?: string;
-  saccoName?: string;
 };
 
 function parseArgs(argv: string[]): CliOptions {
@@ -26,12 +24,6 @@ function parseArgs(argv: string[]): CliOptions {
     } else if ((current === "--name" || current === "-n") && next) {
       options.name = next;
       index += 1;
-    } else if (current === "--sacco-code" && next) {
-      options.saccoCode = next;
-      index += 1;
-    } else if (current === "--sacco-name" && next) {
-      options.saccoName = next;
-      index += 1;
     }
   }
 
@@ -44,7 +36,7 @@ function usage() {
       "Usage:",
       "  bun run admin:create-platform-super -- --email tech@example.com --password 'StrongPass123!'",
       "Optional:",
-      "  --name 'Platform Super Admin' --sacco-code PLATFORM --sacco-name 'Platform SACCO'",
+      "  --name 'Platform Super Admin'",
     ].join("\n"),
   );
 }
@@ -83,8 +75,6 @@ async function main() {
   const email = args.email?.toLowerCase() ?? process.env.PLATFORM_SUPER_ADMIN_EMAIL?.toLowerCase();
   const password = args.password ?? process.env.PLATFORM_SUPER_ADMIN_PASSWORD;
   const name = args.name ?? process.env.PLATFORM_SUPER_ADMIN_NAME ?? "Platform Super Admin";
-  const saccoCode = args.saccoCode ?? process.env.PLATFORM_SUPER_ADMIN_SACCO_CODE ?? "PLATFORM";
-  const saccoName = args.saccoName ?? process.env.PLATFORM_SUPER_ADMIN_SACCO_NAME ?? "Platform SACCO";
 
   if (!email || !password) {
     usage();
@@ -93,19 +83,13 @@ async function main() {
 
   const { userId, created } = await ensureAuthUser({ email, password, name });
 
-  const sacco = await prisma.sacco.upsert({
-    where: { code: saccoCode },
-    update: { name: saccoName },
-    create: { code: saccoCode, name: saccoName },
-  });
-
   await prisma.appUser.upsert({
     where: { authUserId: userId },
     update: {
       email,
       fullName: name,
       role: Role.PLATFORM_SUPER_ADMIN,
-      saccoId: sacco.id,
+      saccoId: null,
       isActive: true,
     },
     create: {
@@ -113,7 +97,7 @@ async function main() {
       email,
       fullName: name,
       role: Role.PLATFORM_SUPER_ADMIN,
-      saccoId: sacco.id,
+      saccoId: null,
       isActive: true,
     },
   });
@@ -124,7 +108,7 @@ async function main() {
       `email=${email}`,
       `password=${password}`,
       `authUserCreated=${created}`,
-      `saccoCode=${saccoCode}`,
+      "saccoCode=<none>",
     ].join("\n"),
   );
 }
