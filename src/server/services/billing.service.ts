@@ -1,5 +1,6 @@
 import { BillingCycle, Prisma, SubscriptionPlan } from "@prisma/client";
 import { prisma } from "@/src/server/db/prisma";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 const TRIAL_DAYS = 30;
 const DEFAULT_CURRENCY = "UGX";
@@ -54,6 +55,28 @@ const planAmount = (plan: SubscriptionPlan, cycle: BillingCycle) =>
   cycle === "ANNUAL"
     ? PLAN_CONFIG[plan].annualAmount
     : PLAN_CONFIG[plan].monthlyAmount;
+
+const resolveGatewayForSacco = async (saccoId: string) => {
+  const settings = await SettingsService.get(saccoId);
+  const configuredSecret = settings.paymentGateway.webhookSecret?.trim();
+
+  return {
+    providerEnabled: settings.paymentGateway.providerEnabled,
+    merchantAccount: settings.paymentGateway.merchantAccount,
+    checkoutBaseUrl:
+      settings.paymentGateway.checkoutBaseUrl ||
+      process.env.PESAPAL_CHECKOUT_URL ||
+      "https://pay.pesapal.com/iframe/PesapalIframe3/Index",
+    subscriptionCallbackUrl:
+      settings.paymentGateway.subscriptionCallbackUrl ||
+      process.env.PESAPAL_CALLBACK_URL ||
+      "https://example.com/api/billing/pesapal/webhook",
+    webhookSecret:
+      configuredSecret && configuredSecret !== "change-this-secret"
+        ? configuredSecret
+        : process.env.PESAPAL_WEBHOOK_SECRET ?? null,
+  };
+};
 
 export const BillingService = {
   planOptions() {
@@ -205,6 +228,12 @@ export const BillingService = {
     const safePlan = normalizePlan(subscription.plan);
     const safeCycle = normalizeCycle(subscription.billingCycle);
     const checkoutAmount = planAmount(safePlan, safeCycle);
+    const gateway = await resolveGatewayForSacco(saccoId);
+    if (!gateway.providerEnabled && process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Payment gateway is disabled for this organization. Enable it in Settings -> Payment Gateway.",
+      );
+    }
     const merchantRef = `SACCOFLOW-${saccoId}-${Date.now()}`;
     const payload = {
       merchantReference: merchantRef,
@@ -214,6 +243,7 @@ export const BillingService = {
       actorId: actorId ?? null,
       plan: safePlan,
       billingCycle: safeCycle,
+      merchantAccount: gateway.merchantAccount,
     };
 
     const event = await prisma.billingEvent.create({
@@ -235,12 +265,8 @@ export const BillingService = {
       data: { pesapalMerchantRef: merchantRef },
     });
 
-    const callbackUrl =
-      process.env.PESAPAL_CALLBACK_URL ??
-      "https://example.com/api/billing/pesapal/webhook";
-    const checkoutBase =
-      process.env.PESAPAL_CHECKOUT_URL ??
-      "https://pay.pesapal.com/iframe/PesapalIframe3/Index";
+    const callbackUrl = gateway.subscriptionCallbackUrl;
+    const checkoutBase = gateway.checkoutBaseUrl;
     const checkoutUrl = `${checkoutBase}?OrderTrackingId=${encodeURIComponent(event.id)}&merchant_reference=${encodeURIComponent(merchantRef)}&callback_url=${encodeURIComponent(callbackUrl)}`;
 
     return {
@@ -290,5 +316,25 @@ export const BillingService = {
     ]);
 
     return { ok: true };
+  },
+
+  async verifyWebhookSecretByReference(
+    reference: string,
+    providedSecret: string | null,
+  ) {
+    const event = await prisma.billingEvent.findFirst({
+      where: { reference, provider: "PESAPAL" },
+      orderBy: { createdAt: "desc" },
+      select: { saccoId: true },
+    });
+
+    if (!event) {
+      throw new Error("Billing reference not found");
+    }
+
+    const gateway = await resolveGatewayForSacco(event.saccoId);
+    if (gateway.webhookSecret && providedSecret !== gateway.webhookSecret) {
+      throw new Error("Invalid webhook signature");
+    }
   },
 };

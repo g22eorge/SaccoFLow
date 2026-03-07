@@ -10,15 +10,20 @@ const webhookSchema = z.object({
 });
 
 export const POST = withApiHandler(async (request: Request) => {
-  const secret = process.env.PESAPAL_WEBHOOK_SECRET;
-  if (secret) {
-    const incoming = request.headers.get("x-pesapal-secret");
-    if (incoming !== secret) {
+  const parsed = webhookSchema.parse(await request.json());
+  const incomingSecret = request.headers.get("x-pesapal-secret");
+  try {
+    await BillingService.verifyWebhookSecretByReference(
+      parsed.merchantReference,
+      incomingSecret,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "Invalid webhook signature") {
       return fail("Invalid webhook signature", 401, "INVALID_SIGNATURE");
     }
+    throw error;
   }
 
-  const parsed = webhookSchema.parse(await request.json());
   if (parsed.paymentStatus !== "COMPLETED") {
     return ok({ accepted: true, updated: false });
   }

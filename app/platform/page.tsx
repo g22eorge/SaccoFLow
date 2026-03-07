@@ -6,6 +6,7 @@ import {
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { prisma } from "@/src/server/db/prisma";
 import { PlatformAssumeTenant } from "@/src/ui/components/platform-assume-tenant";
+import { PlatformOrganizationsManager } from "@/src/ui/components/platform-organizations-manager";
 import Link from "next/link";
 import { LogoutButton } from "@/src/ui/components/logout-button";
 
@@ -67,6 +68,8 @@ export default async function PlatformPage() {
         </section>
 
         <PlatformAssumeTenant tenants={tenants} activeAssumption={activeAssumption} />
+
+        <PlatformOrganizationsManager />
       </section>
     </main>
   );

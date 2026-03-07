@@ -176,6 +176,15 @@ export const settingsSchema = z.object({
   experience: z.object({
     languageLevel: z.enum(["PLAIN", "PROFESSIONAL"]),
   }),
+  paymentGateway: z.object({
+    provider: z.enum(["PESAPAL"]),
+    providerEnabled: z.boolean(),
+    merchantAccount: z.string().min(2),
+    checkoutBaseUrl: z.string().url(),
+    subscriptionCallbackUrl: z.string().url(),
+    memberCallbackUrl: z.string().url(),
+    webhookSecret: z.string().min(8),
+  }),
   featureFlags: z.object({
     enableMemberPortal: z.boolean(),
     enableOfflineCapture: z.boolean(),
@@ -362,6 +371,15 @@ export const defaultSettings: AppSettings = {
   },
   experience: {
     languageLevel: "PLAIN",
+  },
+  paymentGateway: {
+    provider: "PESAPAL",
+    providerEnabled: false,
+    merchantAccount: "DEFAULT",
+    checkoutBaseUrl: "https://pay.pesapal.com/iframe/PesapalIframe3/Index",
+    subscriptionCallbackUrl: "https://example.com/api/billing/pesapal/webhook",
+    memberCallbackUrl: "https://example.com/api/member/payments/pesapal/webhook",
+    webhookSecret: "change-this-secret",
   },
   featureFlags: {
     enableMemberPortal: false,
@@ -918,8 +936,27 @@ export const settingsSections: SettingsSection[] = [
     ],
   },
   {
+    key: "paymentGateway",
+    title: "20. Payment Gateway",
+    description: "Per-organization PesaPal routing and webhook security settings.",
+    fields: [
+      {
+        key: "provider",
+        label: "Provider",
+        type: "select",
+        options: [{ value: "PESAPAL", label: "PesaPal" }],
+      },
+      { key: "providerEnabled", label: "Enable gateway", type: "boolean" },
+      { key: "merchantAccount", label: "Merchant account/reference", type: "text" },
+      { key: "checkoutBaseUrl", label: "Checkout base URL", type: "text" },
+      { key: "subscriptionCallbackUrl", label: "Subscription callback URL", type: "text" },
+      { key: "memberCallbackUrl", label: "Member payment callback URL", type: "text" },
+      { key: "webhookSecret", label: "Webhook secret", type: "text" },
+    ],
+  },
+  {
     key: "featureFlags",
-    title: "20. System Defaults & Feature Flags",
+    title: "21. System Defaults & Feature Flags",
     description: "Module flags and rollout controls.",
     fields: [
       { key: "enableMemberPortal", label: "Enable member portal", type: "boolean" },

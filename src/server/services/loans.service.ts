@@ -879,8 +879,8 @@ export const LoansService = {
       where: { id, saccoId: parsed.saccoId },
     });
 
-    if (!["ACTIVE", "DISBURSED"].includes(loan.status)) {
-      throw new Error("Loan must be disbursed/active before repayment");
+    if (!["ACTIVE", "DISBURSED", "DEFAULTED"].includes(loan.status)) {
+      throw new Error("Loan must be disbursed, active, or defaulted before repayment");
     }
 
     if (loan.memberId !== parsed.memberId) {

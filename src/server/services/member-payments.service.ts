@@ -4,12 +4,33 @@ import { SavingsService } from "@/src/server/services/savings.service";
 import { SharesService } from "@/src/server/services/shares.service";
 import { LoansService } from "@/src/server/services/loans.service";
 import { AuditService } from "@/src/server/services/audit.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 const DEFAULT_CURRENCY = "UGX";
 
-const buildCheckoutUrl = (reference: string) => {
-  const callbackUrl = process.env.PESAPAL_MEMBER_CALLBACK_URL ?? process.env.PESAPAL_CALLBACK_URL ?? "https://example.com/api/member/payments/pesapal/webhook";
-  const checkoutBase = process.env.PESAPAL_CHECKOUT_URL ?? "https://pay.pesapal.com/iframe/PesapalIframe3/Index";
+const resolveGatewayForSacco = async (saccoId: string) => {
+  const settings = await SettingsService.get(saccoId);
+  const configuredSecret = settings.paymentGateway.webhookSecret?.trim();
+  return {
+    providerEnabled: settings.paymentGateway.providerEnabled,
+    checkoutBaseUrl:
+      settings.paymentGateway.checkoutBaseUrl ||
+      process.env.PESAPAL_CHECKOUT_URL ||
+      "https://pay.pesapal.com/iframe/PesapalIframe3/Index",
+    memberCallbackUrl:
+      settings.paymentGateway.memberCallbackUrl ||
+      process.env.PESAPAL_MEMBER_CALLBACK_URL ||
+      process.env.PESAPAL_CALLBACK_URL ||
+      "https://example.com/api/member/payments/pesapal/webhook",
+    merchantAccount: settings.paymentGateway.merchantAccount,
+    webhookSecret:
+      configuredSecret && configuredSecret !== "change-this-secret"
+        ? configuredSecret
+        : process.env.PESAPAL_MEMBER_WEBHOOK_SECRET ?? process.env.PESAPAL_WEBHOOK_SECRET ?? null,
+  };
+};
+
+const buildCheckoutUrl = (reference: string, checkoutBase: string, callbackUrl: string) => {
   return `${checkoutBase}?merchant_reference=${encodeURIComponent(reference)}&callback_url=${encodeURIComponent(callbackUrl)}`;
 };
 
@@ -45,13 +66,25 @@ export const MemberPaymentsService = {
       if (!loan) {
         throw new Error("Loan not found for member");
       }
-      if (loan.status !== "ACTIVE" && loan.status !== "DISBURSED") {
-        throw new Error("Only active/disbursed loans can be repaid");
+      if (
+        loan.status !== "ACTIVE" &&
+        loan.status !== "DISBURSED" &&
+        loan.status !== "DEFAULTED"
+      ) {
+        throw new Error("Only active, disbursed, or defaulted loans can be repaid");
       }
     }
 
     const checkoutReference = `MP-${input.saccoId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const checkoutUrl = buildCheckoutUrl(checkoutReference);
+    const gateway = await resolveGatewayForSacco(input.saccoId);
+    if (!gateway.providerEnabled && process.env.NODE_ENV === "production") {
+      throw new Error("Payment gateway is disabled for this organization. Enable it in Settings -> Payment Gateway.");
+    }
+    const checkoutUrl = buildCheckoutUrl(
+      checkoutReference,
+      gateway.checkoutBaseUrl,
+      gateway.memberCallbackUrl,
+    );
 
     const intent = await prisma.memberPaymentIntent.create({
       data: {
@@ -77,6 +110,7 @@ export const MemberPaymentsService = {
         type: intent.type,
         amount: intent.amount.toString(),
         checkoutReference: intent.checkoutReference,
+        merchantAccount: gateway.merchantAccount,
       },
     });
 
@@ -108,6 +142,7 @@ export const MemberPaymentsService = {
     paymentStatus: "COMPLETED" | "FAILED" | "PENDING";
     providerReference?: string;
     payload?: unknown;
+    providedSecret?: string | null;
   }) {
     const intent = await prisma.memberPaymentIntent.findUnique({
       where: { checkoutReference: input.checkoutReference },
@@ -115,6 +150,11 @@ export const MemberPaymentsService = {
 
     if (!intent) {
       throw new Error("Payment intent not found");
+    }
+
+    const gateway = await resolveGatewayForSacco(intent.saccoId);
+    if (gateway.webhookSecret && input.providedSecret !== gateway.webhookSecret) {
+      throw new Error("Invalid webhook signature");
     }
 
     if (input.paymentStatus !== "COMPLETED") {

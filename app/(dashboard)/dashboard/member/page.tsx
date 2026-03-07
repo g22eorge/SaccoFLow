@@ -252,7 +252,12 @@ export default async function MemberDashboardPage() {
   );
 
   const payableLoans = loans
-    .filter((loan) => loan.status === "ACTIVE" || loan.status === "DISBURSED")
+    .filter(
+      (loan) =>
+        loan.status === "ACTIVE" ||
+        loan.status === "DISBURSED" ||
+        loan.status === "DEFAULTED",
+    )
     .map((loan) => ({
       id: loan.id,
       status: loan.status,

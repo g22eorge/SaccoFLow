@@ -37,7 +37,7 @@ const sectionGroups = {
     "autoDecision",
   ],
   capital: ["savings", "incomeCharges"],
-  governance: ["saccoProfile", "notifications", "experience"],
+  governance: ["saccoProfile", "notifications", "experience", "paymentGateway"],
 } as const;
 
 type SectionGroupKey = keyof typeof sectionGroups;
@@ -209,6 +209,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
           "autoDecision",
           "notifications",
           "experience",
+          "paymentGateway",
         ].includes(section.key),
       ),
     [],
