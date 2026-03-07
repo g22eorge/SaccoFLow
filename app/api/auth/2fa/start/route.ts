@@ -15,6 +15,8 @@ import {
 } from "@/src/lib/auth-2fa";
 import { ok, withApiHandler } from "@/src/server/api/http";
 import { UnauthorizedError } from "@/src/server/auth/rbac";
+import { OtpDeliveryService } from "@/src/server/services/otp-delivery.service";
+import { shouldUseSecureCookies } from "@/src/lib/cookie-security";
 
 const startTwoFactorSchema = z
   .object({
@@ -66,8 +68,8 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     throw new UnauthorizedError("Missing active SACCO profile");
   }
 
-  const channel =
-    parsed?.preferredChannel === "SMS" && appUser.phone ? "SMS" : "EMAIL";
+  const canUseSms = parsed?.preferredChannel === "SMS" && appUser.phone && OtpDeliveryService.hasSmsConfig();
+  const channel = canUseSms ? "SMS" : "EMAIL";
   const destination = channel === "SMS" ? appUser.phone : appUser.email;
   if (!destination) {
     throw new Error("No destination available for two-factor code");
@@ -108,7 +110,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     }
   }
 
-  console.info(`[2FA] ${channel} code for ${destination}: ${code}`);
+  await OtpDeliveryService.sendCode({ channel, destination, code });
 
   const response = ok({
     channel,
@@ -116,10 +118,11 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     expiresInSeconds: 300,
     ...(showOtpPreview ? { otpPreview: code } : {}),
   });
+  const secureCookies = shouldUseSecureCookies(request);
   response.cookies.set(TWO_FACTOR_PENDING_COOKIE, "1", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies,
     path: "/",
     maxAge: 300,
   });
@@ -127,13 +130,13 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     response.cookies.set(
       TWO_FACTOR_CHALLENGE_COOKIE,
       JSON.stringify({ codeHash, expiresAtIso: expiresAt.toISOString(), attempts: 0, maxAttempts: 5 }),
-      {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: 300,
-      },
+        {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: secureCookies,
+          path: "/",
+          maxAge: 300,
+        },
     );
   }
   response.cookies.delete(TWO_FACTOR_SESSION_COOKIE);

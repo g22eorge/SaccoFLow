@@ -55,6 +55,44 @@ enum VerificationLevel {
   STRICT
 }
 
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum BillingEventStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum SubscriptionPlan {
+  STARTER
+  TIER_2
+  TIER_3
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum MemberPaymentType {
+  SAVINGS_DEPOSIT
+  SHARE_PURCHASE
+  LOAN_REPAYMENT
+}
+
+enum MemberPaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
 model Sacco {
   id          String              @id @default(cuid())
   name        String
@@ -72,6 +110,79 @@ model Sacco {
   externalCapitalTxns ExternalCapitalTransaction[]
   auditLogs   AuditLog[]
   tenantAccesses AppUserTenantAccess[]
+  subscription SaccoSubscription?
+  billingEvents BillingEvent[]
+  memberPaymentIntents MemberPaymentIntent[]
+}
+
+model SaccoSubscription {
+  id               String             @id @default(cuid())
+  saccoId          String             @unique
+  status           SubscriptionStatus @default(TRIALING)
+  plan             SubscriptionPlan   @default(STARTER)
+  billingCycle     BillingCycle       @default(MONTHLY)
+  trialStartsAt    DateTime           @default(now())
+  trialEndsAt      DateTime
+  graceEndsAt      DateTime?
+  currentPeriodEndsAt DateTime?
+  monthlyAmount    Decimal            @default(0)
+  currency         String             @default("UGX")
+  pesapalMerchantRef String?
+  pesapalTrackingId String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  sacco            Sacco              @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  billingEvents    BillingEvent[]
+
+  @@index([status, trialEndsAt])
+}
+
+model BillingEvent {
+  id             String             @id @default(cuid())
+  saccoId        String
+  subscriptionId String
+  provider       String             @default("PESAPAL")
+  eventType      String
+  status         BillingEventStatus @default(PENDING)
+  amount         Decimal
+  currency       String             @default("UGX")
+  reference      String?
+  payloadJson    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  sacco          Sacco              @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  subscription   SaccoSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, createdAt])
+  @@index([subscriptionId, status])
+}
+
+model MemberPaymentIntent {
+  id                  String              @id @default(cuid())
+  saccoId             String
+  memberId            String
+  loanId              String?
+  type                MemberPaymentType
+  status              MemberPaymentStatus @default(PENDING)
+  amount              Decimal
+  currency            String              @default("UGX")
+  provider            String              @default("PESAPAL")
+  checkoutReference   String              @unique
+  providerReference   String?
+  checkoutUrl         String?
+  note                String?
+  payloadJson         String?
+  postedTransactionId String?
+  processedAt         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  sacco               Sacco               @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  member              Member              @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  loan                Loan?               @relation(fields: [loanId], references: [id], onDelete: SetNull)
+
+  @@index([saccoId, memberId, createdAt])
+  @@index([status, createdAt])
+  @@index([loanId])
 }
 
 model AppUser {
@@ -136,6 +247,7 @@ model Member {
   loans           Loan[]
   loanRepayments  LoanRepayment[]
   ledgerEntries   LedgerEntry[]
+  paymentIntents  MemberPaymentIntent[]
 
   @@unique([saccoId, memberNumber])
   @@index([saccoId])
@@ -177,6 +289,7 @@ model Loan {
   loanProduct          LoanProduct?    @relation(fields: [loanProductId], references: [id], onDelete: SetNull)
   sacco                Sacco           @relation(fields: [saccoId], references: [id], onDelete: Cascade)
   repayments           LoanRepayment[]
+  paymentIntents       MemberPaymentIntent[]
 
   @@index([saccoId, memberId, status])
   @@index([loanProductId])

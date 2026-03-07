@@ -3,7 +3,10 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 import { AssumeTenantBanner } from "@/src/ui/components/assume-tenant-banner";
+import { BillingPaywall } from "@/src/ui/components/billing-paywall";
 import { prisma } from "@/src/server/db/prisma";
+import { SettingsService } from "@/src/server/services/settings.service";
+import { BillingService } from "@/src/server/services/billing.service";
 
 export default async function DashboardLayout({
   children,
@@ -18,7 +21,7 @@ export default async function DashboardLayout({
     redirect("/platform");
   }
 
-  const [pendingLoanRequests, pendingMemberRequests, defaultedCollectionCases] = await Promise.all([
+  const [pendingLoanRequests, pendingMemberRequests, defaultedCollectionCases, settings, billingAccess] = await Promise.all([
     prisma.loan.count({
       where: {
         saccoId: context.saccoId,
@@ -40,6 +43,8 @@ export default async function DashboardLayout({
         status: "DEFAULTED",
       },
     }),
+    SettingsService.get(context.saccoId),
+    BillingService.getAccessState(context.saccoId),
   ]);
 
   const isApprovalRole = ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"].includes(
@@ -162,6 +167,7 @@ export default async function DashboardLayout({
     <SidebarProvider defaultOpen={true}>
       <AppSidebar
         role={role}
+        languageLevel={settings.experience.languageLevel}
         tenant={
           context.tenantOptions && context.tenantOptions.length > 0
             ? {
@@ -187,7 +193,24 @@ export default async function DashboardLayout({
             reason={context.assumedTenant.reason}
           />
         ) : null}
-        {children}
+        {billingAccess.canAccess ? (
+          children
+        ) : (
+          <BillingPaywall
+            role={role}
+            trialDaysLeft={billingAccess.trialDaysLeft}
+            status={billingAccess.subscription.status}
+            plan={billingAccess.subscription.plan}
+            billingCycle={billingAccess.subscription.billingCycle}
+            currency={billingAccess.subscription.currency}
+            usage={billingAccess.usage}
+            planOptions={billingAccess.planOptions.map((plan) => ({
+              ...plan,
+              monthlyAmount: plan.monthlyAmount.toString(),
+              annualAmount: plan.annualAmount.toString(),
+            }))}
+          />
+        )}
       </SidebarInset>
     </SidebarProvider>
   );

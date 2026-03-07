@@ -44,6 +44,24 @@ async function main() {
     console.warn("[auth:preprod:check] WARNING: AUTH_DIAGNOSTICS is enabled. Disable before production.");
   }
 
+  const smtpConfigured = Boolean(
+    process.env.SMTP_HOST &&
+      process.env.SMTP_PORT &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS &&
+      process.env.SMTP_FROM,
+  );
+  const smsConfigured = Boolean(
+    process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_FROM,
+  );
+  console.log(`[auth:preprod:check] SMTP configured: ${smtpConfigured}`);
+  console.log(`[auth:preprod:check] Twilio SMS configured: ${smsConfigured}`);
+  if (!smtpConfigured && demoOtp !== "true") {
+    console.warn("[auth:preprod:check] WARNING: SMTP is not configured. Real email OTP delivery will fail.");
+  }
+
   await prisma.$queryRaw`SELECT 1`;
 
   const tableCounts = await Promise.all([

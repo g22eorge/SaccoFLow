@@ -1,0 +1,3 @@
+-- AddColumns
+ALTER TABLE "SaccoSubscription" ADD COLUMN "plan" TEXT NOT NULL DEFAULT 'STARTER';
+ALTER TABLE "SaccoSubscription" ADD COLUMN "billingCycle" TEXT NOT NULL DEFAULT 'MONTHLY';

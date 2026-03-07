@@ -17,6 +17,7 @@ import { NavDocuments } from "@/components/nav-documents"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import { TenantSwitcher } from "@/src/ui/components/tenant-switcher"
+import { navTitleForLevel, type LanguageLevel } from "@/src/lib/language-level"
 import {
   Sidebar,
   SidebarContent,
@@ -137,6 +138,12 @@ const navSecondaryItems: SidebarItem[] = [
       icon: IconUsers,
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"],
     },
+    {
+      title: "Billing",
+      url: "/dashboard/billing",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER"],
+    },
 ]
 
 const quickAccessItems: QuickAccessItem[] = [
@@ -230,11 +237,13 @@ export function AppSidebar({
   role,
   user,
   tenant,
+  languageLevel,
   badges,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   role: Role
   user: { name: string; email: string }
+  languageLevel?: LanguageLevel
   tenant?: {
     activeSaccoId: string
     options: Array<{
@@ -293,19 +302,28 @@ export function AppSidebar({
 
   const navMain = navMainItems
     .map((item) => {
+      const relabeled = {
+        ...item,
+        title: navTitleForLevel(languageLevel ?? "PLAIN", item.title, item.url),
+      }
       if (item.url === "/dashboard/loans") {
-        return { ...item, badge: liveBadges.pendingLoanRequests }
+        return { ...relabeled, badge: liveBadges.pendingLoanRequests }
       }
       if (item.url === "/dashboard/member-requests") {
-        return { ...item, badge: liveBadges.pendingMemberRequests }
+        return { ...relabeled, badge: liveBadges.pendingMemberRequests }
       }
       if (item.url === "/dashboard/collections") {
-        return { ...item, badge: liveBadges.defaultedCollectionCases }
+        return { ...relabeled, badge: liveBadges.defaultedCollectionCases }
       }
-      return item
+      return relabeled
     })
     .filter((item) => hasRole(role, item.roles))
-  const navSecondary = navSecondaryItems.filter((item) => hasRole(role, item.roles))
+  const navSecondary = navSecondaryItems
+    .map((item) => ({
+      ...item,
+      title: navTitleForLevel(languageLevel ?? "PLAIN", item.title, item.url),
+    }))
+    .filter((item) => hasRole(role, item.roles))
   const documents = quickAccessItems.filter((item) => hasRole(role, item.roles))
   const createActions = quickCreateItems.filter((item) => hasRole(role, item.roles))
   const workQueue = inboxItems.filter((item) => hasRole(role, item.roles))

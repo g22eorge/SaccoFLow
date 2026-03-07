@@ -173,6 +173,9 @@ export const settingsSchema = z.object({
     requireLoanDocuments: z.boolean(),
     minimumBorrowerAge: z.number().int().min(18),
   }),
+  experience: z.object({
+    languageLevel: z.enum(["PLAIN", "PROFESSIONAL"]),
+  }),
   featureFlags: z.object({
     enableMemberPortal: z.boolean(),
     enableOfflineCapture: z.boolean(),
@@ -356,6 +359,9 @@ export const defaultSettings: AppSettings = {
     consentRetentionDays: 2555,
     requireLoanDocuments: true,
     minimumBorrowerAge: 18,
+  },
+  experience: {
+    languageLevel: "PLAIN",
   },
   featureFlags: {
     enableMemberPortal: false,
@@ -896,8 +902,24 @@ export const settingsSections: SettingsSection[] = [
     ],
   },
   {
+    key: "experience",
+    title: "19. Language & Experience",
+    description: "Pick between plain language and professional finance terms.",
+    fields: [
+      {
+        key: "languageLevel",
+        label: "Language level",
+        type: "select",
+        options: [
+          { value: "PLAIN", label: "Plain language" },
+          { value: "PROFESSIONAL", label: "Professional terms" },
+        ],
+      },
+    ],
+  },
+  {
     key: "featureFlags",
-    title: "19. System Defaults & Feature Flags",
+    title: "20. System Defaults & Feature Flags",
     description: "Module flags and rollout controls.",
     fields: [
       { key: "enableMemberPortal", label: "Enable member portal", type: "boolean" },

@@ -28,6 +28,24 @@ type PendingLoanSchedule = {
   }>;
 };
 
+type PaymentIntentRow = {
+  id: string;
+  type: string;
+  status: string;
+  amount: string;
+  currency: string;
+  createdAt: string;
+  processedAt: string | null;
+  checkoutReference: string;
+  loanId: string | null;
+};
+
+type PayableLoanOption = {
+  id: string;
+  status: string;
+  outstandingAmount: string;
+};
+
 type LoanProductOption = {
   id: string;
   name: string;
@@ -39,10 +57,10 @@ type LoanProductOption = {
 };
 
 const statusChipClass = (status: string) => {
-  if (status === "APPROVED") {
+  if (status === "APPROVED" || status === "SUCCESS") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
-  if (status === "REJECTED") {
+  if (status === "REJECTED" || status === "FAILED" || status === "CANCELLED") {
     return "border-red-200 bg-red-50 text-red-700";
   }
   return "border-amber-200 bg-amber-50 text-amber-700";
@@ -60,10 +78,14 @@ const requestTypeLabel = (type: string) => {
 
 export function MemberSelfService({
   requests,
+  paymentIntents,
+  payableLoans,
   loansPendingScheduleApproval,
   loanProducts,
 }: {
   requests: RequestRow[];
+  paymentIntents: PaymentIntentRow[];
+  payableLoans: PayableLoanOption[];
   loansPendingScheduleApproval: PendingLoanSchedule[];
   loanProducts: LoanProductOption[];
 }) {
@@ -76,14 +98,21 @@ export function MemberSelfService({
   const [requestNote, setRequestNote] = useState("");
   const [requestFilter, setRequestFilter] = useState<"ALL" | "PENDING" | "RESOLVED">("ALL");
   const [query, setQuery] = useState("");
+  const [paymentType, setPaymentType] = useState<"SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT">("SAVINGS_DEPOSIT");
+  const [paymentLoanId, setPaymentLoanId] = useState(payableLoans[0]?.id ?? "");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
   const [loanMessage, setLoanMessage] = useState<string | null>(null);
   const [loanError, setLoanError] = useState<string | null>(null);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [loanSubmitting, setLoanSubmitting] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [approvingScheduleLoanId, setApprovingScheduleLoanId] = useState<string | null>(null);
 
   const selectedLoanProduct =
@@ -161,6 +190,36 @@ export function MemberSelfService({
       setRequestError(submitError instanceof Error ? submitError.message : "Unable to submit request");
     } finally {
       setRequestSubmitting(false);
+    }
+  };
+
+  const submitPayment = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPaymentSubmitting(true);
+    setPaymentMessage(null);
+    setPaymentError(null);
+
+    try {
+      const response = await fetch("/api/member/payments/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: paymentType,
+          amount: paymentAmount,
+          loanId: paymentType === "LOAN_REPAYMENT" ? paymentLoanId : undefined,
+          note: paymentNote || undefined,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error?.message ?? "Could not start payment checkout");
+      }
+
+      setPaymentMessage("Redirecting to PesaPal...");
+      window.location.assign(payload.data.checkoutUrl);
+    } catch (submitError) {
+      setPaymentError(submitError instanceof Error ? submitError.message : "Unable to start payment");
+      setPaymentSubmitting(false);
     }
   };
 
@@ -288,6 +347,103 @@ export function MemberSelfService({
           {requestMessage ? <p className="text-sm text-emerald-700">{requestMessage}</p> : null}
           {requestError ? <p className="text-sm text-red-700">{requestError}</p> : null}
         </form>
+      </section>
+
+      <section className="rounded-lg border bg-card p-6 xl:col-span-2">
+        <h2 className="text-lg font-semibold">Pay with PesaPal</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Deposit to savings, buy shares, or pay a loan and reconcile automatically.
+        </p>
+        <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={submitPayment}>
+          <select
+            value={paymentType}
+            onChange={(event) => setPaymentType(event.target.value as "SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT")}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="SAVINGS_DEPOSIT">Save money</option>
+            <option value="SHARE_PURCHASE">Buy shares</option>
+            <option value="LOAN_REPAYMENT">Pay loan</option>
+          </select>
+          {paymentType === "LOAN_REPAYMENT" ? (
+            <select
+              value={paymentLoanId}
+              onChange={(event) => setPaymentLoanId(event.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              required
+            >
+              {payableLoans.map((loan) => (
+                <option key={loan.id} value={loan.id}>
+                  Loan {loan.id.slice(0, 8)} ({loan.status}) - {formatMoney(loan.outstandingAmount)} due
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={paymentNote}
+              onChange={(event) => setPaymentNote(event.target.value)}
+              placeholder="Note (optional)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          )}
+          <input
+            type="number"
+            min={1}
+            value={paymentAmount}
+            onChange={(event) => setPaymentAmount(event.target.value)}
+            placeholder="Amount"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            required
+          />
+          {paymentType === "LOAN_REPAYMENT" ? (
+            <input
+              type="text"
+              value={paymentNote}
+              onChange={(event) => setPaymentNote(event.target.value)}
+              placeholder="Note (optional)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          ) : null}
+          <button
+            type="submit"
+            disabled={paymentSubmitting || (paymentType === "LOAN_REPAYMENT" && payableLoans.length === 0)}
+            className="rounded-lg border border-border px-3 py-2 text-sm md:col-span-2"
+          >
+            {paymentSubmitting ? "Opening checkout..." : "Continue to PesaPal"}
+          </button>
+          {paymentType === "LOAN_REPAYMENT" && payableLoans.length === 0 ? (
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              No active/disbursed loans available for payment.
+            </p>
+          ) : null}
+          {paymentMessage ? <p className="text-sm text-emerald-700 md:col-span-2">{paymentMessage}</p> : null}
+          {paymentError ? <p className="text-sm text-red-700 md:col-span-2">{paymentError}</p> : null}
+        </form>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {paymentIntents.map((intent) => (
+            <article key={intent.id} className="rounded-md border bg-background px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{intent.type.replaceAll("_", " ")}</p>
+                <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${statusChipClass(intent.status)}`}>
+                  {intent.status}
+                </span>
+              </div>
+              <p className="mt-1 text-sm">{intent.currency} {formatMoney(intent.amount)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Ref: {intent.checkoutReference}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Created: {formatDateTimeUtc(intent.createdAt)}</p>
+              {intent.processedAt ? (
+                <p className="mt-1 text-xs text-muted-foreground">Processed: {formatDateTimeUtc(intent.processedAt)}</p>
+              ) : null}
+            </article>
+          ))}
+          {paymentIntents.length === 0 ? (
+            <article className="rounded-md border border-dashed bg-background px-4 py-4 md:col-span-2">
+              <p className="text-sm font-medium">No payment checkout history yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Payments you start with PesaPal will appear here.</p>
+            </article>
+          ) : null}
+        </div>
       </section>
 
       <section className="rounded-lg border bg-card p-6 xl:col-span-2">

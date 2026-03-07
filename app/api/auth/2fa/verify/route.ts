@@ -12,6 +12,7 @@ import {
 } from "@/src/lib/auth-2fa";
 import { fail, ok, withApiHandler } from "@/src/server/api/http";
 import { UnauthorizedError } from "@/src/server/auth/rbac";
+import { shouldUseSecureCookies } from "@/src/lib/cookie-security";
 
 const verifyTwoFactorSchema = z.object({
   code: z.string().regex(/^\d{6}$/),
@@ -54,6 +55,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   }
 
   const submittedCodeHash = await hashOtpCode(parsed.code);
+  const secureCookies = shouldUseSecureCookies(request);
   const loginChallenge = (prisma as unknown as { loginChallenge?: LoginChallengeDelegate })
     .loginChallenge;
 
@@ -113,7 +115,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         failed.cookies.set(TWO_FACTOR_PENDING_COOKIE, "1", {
           httpOnly: true,
           sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
+          secure: secureCookies,
           path: "/",
           maxAge: 300,
         });
@@ -161,7 +163,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
         {
           httpOnly: true,
           sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
+          secure: secureCookies,
           path: "/",
           maxAge: 300,
         },
@@ -170,7 +172,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
       failed.cookies.set(TWO_FACTOR_PENDING_COOKIE, "1", {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: secureCookies,
         path: "/",
         maxAge: 300,
       });
@@ -182,7 +184,7 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   response.cookies.set(TWO_FACTOR_SESSION_COOKIE, session.user.id, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies,
     path: "/",
     maxAge: 60 * 60 * 24,
   });

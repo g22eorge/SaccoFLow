@@ -5,6 +5,7 @@ import {
 } from "@/src/server/validators/members";
 import { AuditService } from "@/src/server/services/audit.service";
 import { formatMemberLabel } from "@/src/lib/member-label";
+import { BillingService } from "@/src/server/services/billing.service";
 
 export const MembersService = {
   async generateNextMemberNumber(saccoId: string) {
@@ -84,6 +85,7 @@ export const MembersService = {
 
   async create(payload: unknown, actorId?: string) {
     const data = createMemberSchema.parse(payload);
+    await BillingService.assertCanAddMember(data.saccoId);
     const member = await prisma.member.create({
       data: {
         ...data,

@@ -516,10 +516,11 @@ export default async function LoansPage({
   ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
 
   const policyLabel = detectAutoDecisionPolicy(settings.autoDecision);
+  const plainLanguage = settings.experience.languageLevel === "PLAIN";
 
   return (
     <>
-      <SiteHeader title="Loans" />
+      <SiteHeader title={plainLanguage ? "Borrowing" : "Loans"} />
       <div className="flex flex-1 flex-col">
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -531,10 +532,12 @@ export default async function LoansPage({
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
                         Credit Desk
                       </p>
-                      <h1 className="mt-2 text-2xl font-bold">Loans</h1>
-                      <p className="mt-2 text-muted-foreground">
-                        Process loan applications from submission to repayment.
-                      </p>
+                       <h1 className="mt-2 text-2xl font-bold">{plainLanguage ? "Borrowing" : "Loans"}</h1>
+                       <p className="mt-2 text-muted-foreground">
+                         {plainLanguage
+                           ? "Handle borrowing requests from request to full payment."
+                           : "Process loan applications from submission to repayment."}
+                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
                         Updated {new Date().toLocaleString()} | Page {page}
                       </p>

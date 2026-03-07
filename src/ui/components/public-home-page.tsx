@@ -182,20 +182,19 @@ export function PublicHomeClient({ nextUrl }: { nextUrl: string }) {
       <section className="space-y-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">SACCOFlow</p>
         <h1 className="text-4xl font-bold leading-tight">
-          Run your SACCO with role-based clarity for Chairperson, Treasurer, Board, and Members.
+          Manage your group money in one simple place.
         </h1>
         <p className="max-w-xl text-sm text-muted-foreground">
-          See executive signals, manage cash and lending operations, and keep every decision auditable
-          from one secure workspace.
+          Track savings, borrowing, and repayments with clear steps your whole team can follow.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <article className="rounded-lg border bg-card px-4 py-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Executive View</p>
-            <p className="mt-1 text-sm font-medium">Signals, scenarios, and board action tracking.</p>
+            <p className="mt-1 text-sm font-medium">Simple summaries for leaders and members.</p>
           </article>
           <article className="rounded-lg border bg-card px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Operations</p>
-            <p className="mt-1 text-sm font-medium">Savings, shares, loans, cashflow, and compliance exports.</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Daily Work</p>
+            <p className="mt-1 text-sm font-medium">Record deposits, send loans, receive payments, and export reports.</p>
           </article>
         </div>
       </section>

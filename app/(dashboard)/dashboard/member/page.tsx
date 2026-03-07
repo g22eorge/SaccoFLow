@@ -8,6 +8,8 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { LoansService } from "@/src/server/services/loans.service";
 import { LoanProductsService } from "@/src/server/services/loan-products.service";
+import { MemberPaymentsService } from "@/src/server/services/member-payments.service";
+import { BillingService } from "@/src/server/services/billing.service";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { MemberSelfService } from "@/src/ui/components/member-self-service";
@@ -63,6 +65,7 @@ export default async function MemberDashboardPage() {
   }
 
   if (!member) {
+    await BillingService.assertCanAddMember(saccoId);
     const memberNumber = await MembersService.generateNextMemberNumber(saccoId);
     member = await prisma.member.create({
       data: {
@@ -92,6 +95,7 @@ export default async function MemberDashboardPage() {
     memberRequestStatusLogs,
     depositsPrevious30d,
     loanProducts,
+    paymentIntents,
   ] = await Promise.all([
     SavingsService.getMemberBalance(saccoId, member.id),
     SharesService.getMemberShareBalance(saccoId, member.id),
@@ -161,6 +165,7 @@ export default async function MemberDashboardPage() {
       _sum: { amount: true },
     }),
     LoanProductsService.list(saccoId),
+    MemberPaymentsService.listMemberIntents(saccoId, member.id, 12),
   ]);
 
   const requestLogs = await prisma.auditLog.findMany({
@@ -245,6 +250,18 @@ export default async function MemberDashboardPage() {
         }),
       })),
   );
+
+  const payableLoans = loans
+    .filter((loan) => loan.status === "ACTIVE" || loan.status === "DISBURSED")
+    .map((loan) => ({
+      id: loan.id,
+      status: loan.status,
+      outstandingAmount: (
+        Number(loan.outstandingPrincipal.toString()) +
+        Number(loan.outstandingInterest.toString()) +
+        Number(loan.outstandingPenalty.toString())
+      ).toString(),
+    }));
 
   return (
     <>
@@ -429,6 +446,18 @@ export default async function MemberDashboardPage() {
           <section id="self-service">
             <MemberSelfService
               requests={requests}
+              paymentIntents={paymentIntents.map((intent) => ({
+                id: intent.id,
+                type: intent.type,
+                status: intent.status,
+                amount: intent.amount.toString(),
+                currency: intent.currency,
+                createdAt: intent.createdAt.toISOString(),
+                processedAt: intent.processedAt?.toISOString() ?? null,
+                checkoutReference: intent.checkoutReference,
+                loanId: intent.loanId,
+              }))}
+              payableLoans={payableLoans}
               loansPendingScheduleApproval={loansPendingScheduleApproval}
               loanProducts={loanProducts.map((product) => ({
                 id: product.id,
