@@ -365,6 +365,8 @@ export function DataTable({
     [data]
   )
 
+  // TanStack Table intentionally returns non-memoizable helpers; safe for this local stateful table.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

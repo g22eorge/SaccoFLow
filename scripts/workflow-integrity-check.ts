@@ -151,6 +151,58 @@ async function main() {
     .filter((item) => item.balance.lessThan(0))
     .map((item) => ({ type: "negative_share_balance", memberKey: item.key, balance: item.balance.toString() }));
 
+  let fixedShares = 0;
+  if (shouldFix && negativeShares.length > 0) {
+    for (const anomaly of negativeShares) {
+      const [saccoId, memberId] = anomaly.memberKey.split(":");
+      const amount = new Prisma.Decimal(anomaly.balance).abs();
+
+      await prisma.ledgerEntry.create({
+        data: {
+          saccoId,
+          memberId,
+          eventType: "SHARE_ADJUSTMENT",
+          amount,
+          reference: "Integrity correction: share balance normalization",
+        },
+      });
+      fixedShares += 1;
+    }
+  }
+
+  let negativeSharesAfterFix = negativeShares;
+  if (shouldFix && negativeShares.length > 0) {
+    const refreshedShares = await prisma.ledgerEntry.groupBy({
+      by: ["saccoId", "memberId", "eventType"],
+      where: { eventType: { in: ["SHARE_PURCHASE", "SHARE_REDEMPTION", "SHARE_ADJUSTMENT"] } },
+      _sum: { amount: true },
+    });
+
+    const refreshedMap = new Map<string, { purchase: Prisma.Decimal; redemption: Prisma.Decimal; adjustment: Prisma.Decimal }>();
+    for (const row of refreshedShares) {
+      if (!row.memberId) continue;
+      const key = `${row.saccoId}:${row.memberId}`;
+      const current = refreshedMap.get(key) ?? {
+        purchase: new Prisma.Decimal(0),
+        redemption: new Prisma.Decimal(0),
+        adjustment: new Prisma.Decimal(0),
+      };
+      const amount = toDecimal(row._sum.amount);
+      if (row.eventType === "SHARE_PURCHASE") current.purchase = amount;
+      if (row.eventType === "SHARE_REDEMPTION") current.redemption = amount;
+      if (row.eventType === "SHARE_ADJUSTMENT") current.adjustment = amount;
+      refreshedMap.set(key, current);
+    }
+
+    negativeSharesAfterFix = [...refreshedMap.entries()]
+      .map(([key, value]) => {
+        const balance = value.purchase.minus(value.redemption).plus(value.adjustment);
+        return { key, balance };
+      })
+      .filter((item) => item.balance.lessThan(0))
+      .map((item) => ({ type: "negative_share_balance", memberKey: item.key, balance: item.balance.toString() }));
+  }
+
   const externalAnomalies = external.flatMap((tx) => {
     const issues: Array<Record<string, unknown>> = [];
     if (tx.status === "VERIFIED" && (!tx.verifiedAt || !tx.verifiedById)) {
@@ -175,16 +227,17 @@ async function main() {
     anomalies: {
       loans: loanAnomalies.length,
       negativeSavings: negativeSavings.length,
-      negativeShares: negativeShares.length,
+      negativeShares: negativeSharesAfterFix.length,
       externalCapital: externalAnomalies.length,
     },
     fixed: {
       loanMicroBalancesCleared: fixedCleared,
+      shareBalancesNormalized: fixedShares,
     },
     samples: {
       loans: loanAnomalies.slice(0, 20),
       negativeSavings: negativeSavings.slice(0, 20),
-      negativeShares: negativeShares.slice(0, 20),
+      negativeShares: negativeSharesAfterFix.slice(0, 20),
       externalCapital: externalAnomalies.slice(0, 20),
     },
   };

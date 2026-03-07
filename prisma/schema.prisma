@@ -71,6 +71,7 @@ model Sacco {
   ledger      LedgerEntry[]
   externalCapitalTxns ExternalCapitalTransaction[]
   auditLogs   AuditLog[]
+  tenantAccesses AppUserTenantAccess[]
 }
 
 model AppUser {
@@ -97,9 +98,26 @@ model AppUser {
   auditLogs  AuditLog[]
   verifiedExternalCapitalTxns ExternalCapitalTransaction[] @relation("ExternalCapitalVerifiedBy")
   postedExternalCapitalTxns ExternalCapitalTransaction[]   @relation("ExternalCapitalPostedBy")
+  tenantAccesses AppUserTenantAccess[]
 
   @@index([saccoId])
   @@index([email])
+}
+
+model AppUserTenantAccess {
+  id         String   @id @default(cuid())
+  authUserId String
+  saccoId    String
+  role       Role     @default(SUPER_ADMIN)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  appUser    AppUser  @relation(fields: [authUserId], references: [authUserId], onDelete: Cascade)
+  sacco      Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([authUserId, saccoId])
+  @@index([authUserId, isActive])
+  @@index([saccoId, isActive])
 }
 
 model Member {

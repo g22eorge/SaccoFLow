@@ -9,9 +9,7 @@ import { fail, ok, withApiHandler } from "@/src/server/api/http";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   const diagnosticsEnabled =
-    process.env.NODE_ENV !== "production" ||
-    process.env.DEMO_OTP_PREVIEW === "true" ||
-    process.env.AUTH_DIAGNOSTICS === "true";
+    process.env.NODE_ENV !== "production" || process.env.AUTH_DIAGNOSTICS === "true";
 
   if (!diagnosticsEnabled) {
     return fail("Not found", 404, "NOT_FOUND");

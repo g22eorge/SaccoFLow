@@ -162,6 +162,14 @@ export default async function DashboardLayout({
     <SidebarProvider defaultOpen={true}>
       <AppSidebar
         role={role}
+        tenant={
+          context.tenantOptions && context.tenantOptions.length > 0
+            ? {
+                activeSaccoId: context.saccoId,
+                options: context.tenantOptions,
+              }
+            : undefined
+        }
         badges={{
           pendingLoanRequests: pendingLoanActionable,
           pendingMemberRequests,

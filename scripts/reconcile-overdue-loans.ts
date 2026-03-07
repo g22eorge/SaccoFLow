@@ -7,12 +7,10 @@ const run = async () => {
     ? await LoanLifecycleService.reconcileSacco(saccoId)
     : await LoanLifecycleService.reconcileAll();
 
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(result, null, 2));
 };
 
 run().catch((error) => {
-  // eslint-disable-next-line no-console
   console.error(error);
   process.exit(1);
 });

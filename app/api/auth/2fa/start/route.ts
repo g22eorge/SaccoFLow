@@ -76,7 +76,8 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   const code = generateOtpCode();
   const codeHash = await hashOtpCode(code);
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-  const showOtpPreview = true;
+  const showOtpPreview =
+    process.env.DEMO_OTP_PREVIEW === "true" && process.env.NODE_ENV !== "production";
   const loginChallenge = (prisma as unknown as { loginChallenge?: LoginChallengeDelegate })
     .loginChallenge;
 

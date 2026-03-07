@@ -37,6 +37,12 @@ async function main() {
   const diagnostics = process.env.AUTH_DIAGNOSTICS;
   console.log(`[auth:preprod:check] DEMO_OTP_PREVIEW=${demoOtp ?? "<unset>"}`);
   console.log(`[auth:preprod:check] AUTH_DIAGNOSTICS=${diagnostics ?? "<unset>"}`);
+  if (demoOtp === "true") {
+    console.warn("[auth:preprod:check] WARNING: DEMO_OTP_PREVIEW is enabled. Disable before production.");
+  }
+  if (diagnostics === "true") {
+    console.warn("[auth:preprod:check] WARNING: AUTH_DIAGNOSTICS is enabled. Disable before production.");
+  }
 
   await prisma.$queryRaw`SELECT 1`;
 

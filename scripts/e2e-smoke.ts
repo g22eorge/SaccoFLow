@@ -18,6 +18,7 @@ const cookieFromEnv = process.env.SMOKE_COOKIE;
 const identifier = process.env.SMOKE_IDENTIFIER;
 const email = process.env.SMOKE_EMAIL;
 const password = process.env.SMOKE_PASSWORD;
+const otpFromEnv = process.env.SMOKE_OTP_CODE;
 const perfRuns = Number(process.env.SMOKE_PERF_RUNS ?? "1");
 const args = new Set(process.argv.slice(2));
 const outputJson = args.has("--json");
@@ -135,9 +136,11 @@ const ensureSignedIn = async () => {
     throw new Error(startPayload?.error?.message ?? `2FA start failed with status ${start2fa.status}`);
   }
 
-  const otpCode = startPayload?.data?.otpPreview;
+  const otpCode = startPayload?.data?.otpPreview ?? otpFromEnv;
   if (!otpCode) {
-    throw new Error("2FA OTP preview is unavailable. Set SMOKE_COOKIE or enable demo OTP preview.");
+    throw new Error(
+      "2FA code is unavailable. Set SMOKE_OTP_CODE for non-demo environments, or use SMOKE_COOKIE.",
+    );
   }
 
   const verify2fa = await authFetch("/api/auth/2fa/verify", {

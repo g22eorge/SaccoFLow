@@ -16,6 +16,7 @@ import { NavMain } from "@/components/nav-main"
 import { NavDocuments } from "@/components/nav-documents"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { TenantSwitcher } from "@/src/ui/components/tenant-switcher"
 import {
   Sidebar,
   SidebarContent,
@@ -228,11 +229,21 @@ const hasRole = (role: Role, allowed?: Role[]) =>
 export function AppSidebar({
   role,
   user,
+  tenant,
   badges,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   role: Role
   user: { name: string; email: string }
+  tenant?: {
+    activeSaccoId: string
+    options: Array<{
+      saccoId: string
+      saccoCode: string
+      saccoName: string
+      role: Role
+    }>
+  }
   badges?: {
     pendingLoanRequests?: number
     pendingMemberRequests?: number
@@ -318,6 +329,14 @@ export function AppSidebar({
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {tenant ? (
+            <SidebarMenuItem>
+              <TenantSwitcher
+                activeSaccoId={tenant.activeSaccoId}
+                tenants={tenant.options}
+              />
+            </SidebarMenuItem>
+          ) : null}
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>

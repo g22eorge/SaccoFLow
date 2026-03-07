@@ -3,6 +3,12 @@ import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 const state = {
   session: null as { user?: { id?: string; email?: string } } | null,
   appUser: null as { id?: string; role?: string; saccoId?: string } | null,
+  tenantAccesses: [] as Array<{
+    saccoId: string;
+    role: string;
+    sacco: { id: string; code: string; name: string };
+  }>,
+  sacco: null as { id: string; code: string; name: string } | null,
 };
 
 mock.module("next/headers", () => ({
@@ -31,6 +37,12 @@ mock.module("@/src/server/db/prisma", () => ({
     appUser: {
       findFirst: async () => state.appUser,
     },
+    appUserTenantAccess: {
+      findMany: async () => state.tenantAccesses,
+    },
+    sacco: {
+      findUnique: async () => state.sacco,
+    },
   },
 }));
 
@@ -41,6 +53,8 @@ describe("RBAC", () => {
   beforeEach(() => {
     state.session = null;
     state.appUser = null;
+    state.tenantAccesses = [];
+    state.sacco = null;
   });
 
   it("redirects when no session exists", async () => {

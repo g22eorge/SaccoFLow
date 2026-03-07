@@ -24,7 +24,8 @@
     "workflow:integrity:check": "bun run scripts/workflow-integrity-check.ts",
     "loans:reconcile": "bun run scripts/reconcile-overdue-loans.ts",
     "members:sync-existing": "bun run scripts/sync-existing-members.ts",
-    "settings:backfill-auto-decision-balanced": "bun run scripts/backfill-auto-decision-balanced.ts"
+    "settings:backfill-auto-decision-balanced": "bun run scripts/backfill-auto-decision-balanced.ts",
+    "tenant:grant-access": "bun run scripts/grant-tenant-access.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
