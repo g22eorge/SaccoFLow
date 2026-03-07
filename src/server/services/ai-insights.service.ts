@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/server/db/prisma";
 import { DashboardService } from "@/src/server/services/dashboard.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 type AnyRow = Record<string, any>;
 
@@ -13,6 +14,9 @@ const decimal = (value: Prisma.Decimal | null | undefined) =>
 
 const clamp = (value: number, min = 0, max = 100) =>
   Math.max(min, Math.min(max, value));
+
+const toMemberLabel = (member: { memberNumber?: string | null; fullName?: string | null }) =>
+  formatMemberLabel(member.memberNumber ?? "", member.fullName ?? "Unknown Member");
 
 type PolicyInput = {
   greenMinScore: number;
@@ -75,7 +79,7 @@ export const AiInsightsService = {
         where: { saccoId, status: "PENDING" },
         include: {
           member: {
-            select: { id: true, fullName: true, phone: true, email: true },
+            select: { id: true, memberNumber: true, fullName: true, phone: true, email: true },
           },
         },
         orderBy: { appliedAt: "desc" },
@@ -83,7 +87,7 @@ export const AiInsightsService = {
       }),
       prisma.loan.findMany({
         where: { saccoId, status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] } },
-        include: { member: { select: { id: true, fullName: true, phone: true, email: true } } },
+        include: { member: { select: { id: true, memberNumber: true, fullName: true, phone: true, email: true } } },
         orderBy: { dueAt: "asc" },
         take: 120,
       }),
@@ -201,7 +205,7 @@ export const AiInsightsService = {
 
       return {
         loanId: loan.id,
-        memberName: loan.member.fullName,
+        memberName: toMemberLabel(loan.member),
         score: evaluation.score,
         confidence: clamp(Math.round((evaluation.score / 100) * 92 + 8)),
         recommendation,
@@ -233,7 +237,7 @@ export const AiInsightsService = {
 
         return {
           loanId: loan.id,
-          memberName: loan.member.fullName,
+          memberName: toMemberLabel(loan.member),
           risk,
           daysToDue,
           daysSinceLastRepayment,
@@ -295,7 +299,7 @@ export const AiInsightsService = {
     const anomalyAlerts = {
       highValueAdjustments: (suspiciousSavings as AnyRow[]).map((row: AnyRow) => ({
         id: row.id,
-        memberName: row.member.fullName,
+        memberName: toMemberLabel(row.member),
         memberNumber: row.member.memberNumber,
         amount: row.amount.toString(),
         createdAt: row.createdAt.toISOString(),
@@ -399,7 +403,7 @@ export const AiInsightsService = {
         const timing = daysToDue <= 3 ? "today 09:00" : "in 48 hours";
         return {
           loanId: loan.id,
-          memberName: loan.member.fullName,
+          memberName: toMemberLabel(loan.member),
           daysToDue,
           preferredChannel,
           timing,

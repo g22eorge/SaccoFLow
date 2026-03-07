@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 type MemberRow = {
   id: string;
@@ -186,7 +187,7 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
           <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2">Member #</th>
-              <th className="px-3 py-2">Full Name</th>
+              <th className="min-w-[25ch] px-3 py-2">Full Name</th>
               <th className="px-3 py-2">Phone</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Status</th>
@@ -201,17 +202,17 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
               return (
                 <tr key={member.id} className="border-t align-top hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs font-semibold">{member.memberNumber}</td>
-                  <td className="px-3 py-2 text-xs">
+                  <td className="min-w-[25ch] px-3 py-2 text-xs">
                     {isEditing ? (
                       <input
                         value={draft.fullName}
                         onChange={(event) =>
                           setDraft((prev) => ({ ...prev, fullName: event.target.value }))
                         }
-                        className="w-full rounded border border-border bg-background px-2 py-1"
+                        className="min-w-[25ch] w-full rounded border border-border bg-background px-2 py-1"
                       />
                     ) : (
-                      member.fullName
+                      formatMemberLabel(member.memberNumber, member.fullName)
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">

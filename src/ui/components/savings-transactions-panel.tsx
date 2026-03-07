@@ -57,26 +57,12 @@ export function SavingsTransactionsPanel({
     );
   }, [fromDate, query, sortBy, toDate, transactions, typeFilter]);
 
-  const exportVisibleTransactions = () => {
-    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
-    const rows = [
-      ["member", "type", "amount", "note", "createdAt"],
-      ...visibleTransactions.map((transaction) => [
-        transaction.memberLabel,
-        transaction.type,
-        transaction.amount,
-        transaction.note ?? "",
-        transaction.createdAt,
-      ]),
-    ];
-    const csv = rows.map((row) => row.map((cell) => escape(cell)).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "savings-transactions.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportTransactions = (format: "excel" | "pdf") => {
+    const params = new URLSearchParams({
+      format,
+      page: "1",
+    });
+    window.location.href = `/api/savings/export?${params.toString()}`;
   };
 
   return (
@@ -129,13 +115,22 @@ export function SavingsTransactionsPanel({
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
         </div>
-        <button
-          type="button"
-          onClick={exportVisibleTransactions}
-          className="rounded-lg border border-border px-3 py-2 text-sm"
-        >
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => exportTransactions("excel")}
+            className="rounded-lg border border-border px-3 py-2 text-sm"
+          >
+            Export Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => exportTransactions("pdf")}
+            className="rounded-lg border border-border px-3 py-2 text-sm"
+          >
+            Export PDF
+          </button>
+        </div>
         <div className="ml-auto flex gap-2">
           <button
             type="button"
@@ -190,7 +185,7 @@ export function SavingsTransactionsPanel({
           <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-2">Member</th>
+                <th className="min-w-[25ch] px-3 py-2">Member</th>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2">Amount</th>
                 <th className="px-3 py-2">Note</th>
@@ -200,7 +195,7 @@ export function SavingsTransactionsPanel({
             <tbody>
               {visibleTransactions.map((transaction) => (
                 <tr key={transaction.id} className="border-t hover:bg-muted/40">
-                  <td className="px-3 py-2 text-xs">{transaction.memberLabel}</td>
+                  <td className="min-w-[25ch] px-3 py-2 text-xs">{transaction.memberLabel}</td>
                   <td className="px-3 py-2 text-xs font-semibold">{transaction.type}</td>
                   <td className="px-3 py-2 text-xs">{formatMoney(transaction.amount)}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{transaction.note ?? "-"}</td>

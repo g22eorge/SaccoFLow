@@ -36,6 +36,7 @@ type DashboardMonitorsResult = {
     liquidityReserveAmount: string;
     liquidityReserveRatioPercent: number;
     deployableShareCapital: string;
+    deployableExternalCapital: string;
     deployableShareCapitalRatioPercent: number;
     par30Percent: number;
     par90Percent: number;
@@ -66,6 +67,10 @@ const toCurrencyString = (value: Prisma.Decimal | null | undefined) =>
   formatMoney(toDecimal(value).toFixed(2));
 
 export const DashboardService = {
+  invalidateCache(saccoId: string) {
+    dashboardMonitorsCache.delete(saccoId);
+  },
+
   async monitors(saccoId: string) {
     const cached = dashboardMonitorsCache.get(saccoId);
     if (cached && cached.expiresAt > Date.now()) {
@@ -106,6 +111,7 @@ export const DashboardService = {
       par90ExposureAgg,
       memberExposureBuckets,
       externalCapital,
+      postedExternalCapitalAgg,
     ] = await Promise.all([
       SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
@@ -254,6 +260,10 @@ export const DashboardService = {
         },
       }),
       ExternalCapitalService.total(saccoId),
+      prisma.externalCapitalTransaction.aggregate({
+        where: { saccoId, status: "POSTED" },
+        _sum: { baseAmount: true },
+      }),
     ]);
 
     const pendingMemberRequests = memberRequestLogs.reduce((count, log) => {
@@ -343,7 +353,14 @@ export const DashboardService = {
     const deployableShareCapital = toDecimal(totalShareCapital)
       .mul(settings.savings.deployableShareCapitalRatioPercent)
       .div(100);
-    const capitalSupportedCapacity = liquidityLendableFunds.plus(deployableShareCapital);
+    const deployableExternalCapital = toDecimal(
+      postedExternalCapitalAgg._sum.baseAmount,
+    );
+    const liquidityLendableFundsWithExternalCapital = liquidityLendableFunds.plus(
+      deployableExternalCapital,
+    );
+    const capitalSupportedCapacityWithExternalCapital =
+      liquidityLendableFundsWithExternalCapital.plus(deployableShareCapital);
 
     const recentActivity = [
       ...recentSavings.map((entry) => ({
@@ -381,9 +398,15 @@ export const DashboardService = {
         ),
         savingsBalance: formatMoney(totalSavingsBalance.toFixed(2)),
         totalShareCapital: formatMoney(totalShareCapital.toFixed(2)),
-        lendableFunds: formatMoney(liquidityLendableFunds.toFixed(2)),
-        capitalSupportedCapacity: formatMoney(capitalSupportedCapacity.toFixed(2)),
-        totalLendingHeadroom: formatMoney(capitalSupportedCapacity.toFixed(2)),
+        lendableFunds: formatMoney(
+          liquidityLendableFundsWithExternalCapital.toFixed(2),
+        ),
+        capitalSupportedCapacity: formatMoney(
+          capitalSupportedCapacityWithExternalCapital.toFixed(2),
+        ),
+        totalLendingHeadroom: formatMoney(
+          capitalSupportedCapacityWithExternalCapital.toFixed(2),
+        ),
       },
       monitors: {
         portfolioRiskPercent: Number(riskRatio.toFixed(2)),
@@ -397,6 +420,7 @@ export const DashboardService = {
         liquidityReserveAmount: formatMoney(liquidityReserveAmount.toFixed(2)),
         liquidityReserveRatioPercent: settings.savings.liquidityReserveRatioPercent,
         deployableShareCapital: formatMoney(deployableShareCapital.toFixed(2)),
+        deployableExternalCapital: formatMoney(deployableExternalCapital.toFixed(2)),
         deployableShareCapitalRatioPercent:
           settings.savings.deployableShareCapitalRatioPercent,
         par30Percent,

@@ -63,7 +63,9 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
           actionType,
           outcome,
           note: note || undefined,
-          nextFollowUpAt: nextFollowUpAt || undefined,
+          nextFollowUpAt: nextFollowUpAt
+            ? new Date(nextFollowUpAt).toISOString()
+            : undefined,
         }),
       });
       const payload = await response.json();
@@ -172,7 +174,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
             <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">Member</th>
+                  <th className="min-w-[25ch] px-3 py-2">Member</th>
                   <th className="px-3 py-2">Severity</th>
                   <th className="px-3 py-2">Exposure</th>
                   <th className="px-3 py-2">Signal</th>
@@ -184,7 +186,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
               <tbody>
                 {visibleCases.map((entry) => (
                   <tr key={entry.loanId} className="border-t hover:bg-muted/40">
-                    <td className="px-3 py-2 text-xs">{entry.memberName}</td>
+                    <td className="min-w-[25ch] px-3 py-2 text-xs">{entry.memberName}</td>
                     <td className="px-3 py-2 text-xs font-semibold">{entry.severity}</td>
                     <td className="px-3 py-2 text-xs">{formatMoney(entry.exposure)}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">{entry.reason}</td>

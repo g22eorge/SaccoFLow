@@ -4,6 +4,7 @@ import { savingsTransactionSchema } from "@/src/server/validators/savings";
 import { LedgerService } from "@/src/server/services/ledger.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { DashboardService } from "@/src/server/services/dashboard.service";
 
 export const SavingsService = {
   async list(input: {
@@ -162,6 +163,8 @@ export const SavingsService = {
       entityId: transaction.id,
       after: transaction,
     });
+
+    DashboardService.invalidateCache(parsed.saccoId);
 
     return transaction;
   },

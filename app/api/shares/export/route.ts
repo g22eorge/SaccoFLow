@@ -4,6 +4,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { toCsv, toSimplePdf } from "@/src/server/export/tabular";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
+import { formatMemberLabel } from "@/src/lib/member-label";
 import { withApiHandler } from "@/src/server/api/http";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
@@ -19,14 +20,16 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId, id: actorId } = await requireSaccoContext();
 
   const page = Math.max(1, Number(request.nextUrl.searchParams.get("page") ?? "1") || 1);
-  const format = request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "csv";
+  const formatParam = request.nextUrl.searchParams.get("format");
+  const format =
+    formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";
 
   const transactions = await SharesService.list({ saccoId, page });
 
   const headers = ["member", "eventType", "amount", "reference", "createdAt"];
   const rows = transactions.map((entry) => [
     entry.member
-      ? `${entry.member.memberNumber} - ${entry.member.fullName}`
+      ? formatMemberLabel(entry.member.memberNumber, entry.member.fullName)
       : entry.memberId ?? "Unknown",
     entry.eventType,
     entry.amount.toString(),
@@ -58,8 +61,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   return new NextResponse(csv, {
     status: 200,
     headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="shares-page-${page}.csv"`,
+      "content-type":
+        format === "excel"
+          ? "application/vnd.ms-excel; charset=utf-8"
+          : "text/csv; charset=utf-8",
+      "content-disposition":
+        format === "excel"
+          ? `attachment; filename="shares-page-${page}.xls"`
+          : `attachment; filename="shares-page-${page}.csv"`,
     },
   });
 });

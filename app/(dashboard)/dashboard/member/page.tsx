@@ -11,6 +11,7 @@ import { LoanProductsService } from "@/src/server/services/loan-products.service
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { MemberSelfService } from "@/src/ui/components/member-self-service";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 const loanStatusChipClass = (status: string) => {
   if (status === "ACTIVE" || status === "DISBURSED") {
@@ -67,7 +68,10 @@ export default async function MemberDashboardPage() {
       data: {
         saccoId,
         memberNumber,
-        fullName: appUser?.fullName ?? email.split("@")[0],
+        fullName: formatMemberLabel(
+          memberNumber,
+          appUser?.fullName ?? email.split("@")[0],
+        ),
         email,
         status: "ACTIVE",
       },
@@ -251,7 +255,9 @@ export default async function MemberDashboardPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
               Member View
             </p>
-            <h1 className="mt-2 text-2xl font-bold">Welcome, {member.fullName}</h1>
+            <h1 className="mt-2 text-2xl font-bold">
+              Welcome, {formatMemberLabel(member.memberNumber, member.fullName)}
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Your personal balances and latest loan activity.
             </p>

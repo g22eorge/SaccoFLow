@@ -7,6 +7,7 @@ import { SettingsService } from "@/src/server/services/settings.service";
 import { LoanManagement } from "@/src/ui/forms/loan-management";
 import { SiteHeader } from "@/components/site-header";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/src/server/db/prisma";
@@ -64,22 +65,36 @@ const detectAutoDecisionPolicy = (auto: {
 export default async function LoansPage({
   searchParams,
 }: {
-  searchParams?: { status?: string; page?: string };
+  searchParams?:
+    | Promise<{ status?: string; page?: string; q?: string; sort?: string }>
+    | { status?: string; page?: string; q?: string; sort?: string };
 }) {
+  const resolvedSearchParams = searchParams
+    ? await (searchParams as Promise<{ status?: string; page?: string; q?: string; sort?: string }>)
+    : undefined;
   const { saccoId, role } = await requireSaccoContext();
   if (
     !["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "LOAN_OFFICER"].includes(role)
   ) {
     redirect("/dashboard");
   }
-  const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
-  const status = searchParams?.status;
-  const [members, loans, loanProducts, settings] = await Promise.all([
+  const page = Math.max(1, Number(resolvedSearchParams?.page ?? "1") || 1);
+  const status = resolvedSearchParams?.status;
+  const query = resolvedSearchParams?.q?.trim() ?? "";
+  const sortBy =
+    resolvedSearchParams?.sort === "name" ||
+    resolvedSearchParams?.sort === "outstanding" ||
+    resolvedSearchParams?.sort === "dueSoon"
+      ? resolvedSearchParams.sort
+      : "dueSoon";
+
+  const [members, pagedLoans, loanProducts, settings] = await Promise.all([
     MembersService.list({ saccoId, page: 1 }),
-    LoansService.list({ saccoId, status, page }),
+    LoansService.listPaged({ saccoId, status, page, query, sortBy }),
     LoanProductsService.list(saccoId),
     SettingsService.get(saccoId),
   ]);
+  const loans = pagedLoans.rows;
   const scheduleApprovals = await prisma.auditLog.findMany({
     where: {
       saccoId,
@@ -181,7 +196,7 @@ export default async function LoansPage({
       continue;
     }
   }
-  const hasNextPage = loans.length === 30;
+  const hasNextPage = pagedLoans.hasNextPage;
   const shareBalances = await Promise.all(
     members.map(async (member) => ({
       memberId: member.id,
@@ -192,17 +207,22 @@ export default async function LoansPage({
     shareBalances.map((entry) => [entry.memberId, entry.balance.toString()]),
   );
 
+  const membersInLoans = await MembersService.getByIds(
+    saccoId,
+    [...new Set(loans.map((loan) => loan.memberId))],
+  );
+
   const memberMap = new Map(
-    members.map((member) => [
+    [...members, ...membersInLoans].map((member) => [
       member.id,
-      `${member.memberNumber} - ${member.fullName}`,
+      formatMemberLabel(member.memberNumber, member.fullName),
     ]),
   );
 
   const loanRows = loans.map((loan) => ({
     id: loan.id,
     memberId: loan.memberId,
-    memberName: memberMap.get(loan.memberId) ?? loan.memberId,
+    memberName: memberMap.get(loan.memberId) ?? "Unknown member",
     loanProductId: loan.loanProduct?.id ?? null,
     loanProductName: loan.loanProduct?.name ?? "Unspecified product",
     status: loan.status,
@@ -796,15 +816,26 @@ export default async function LoansPage({
                   </section>
                 ) : null}
 
-                <LoanManagement members={memberOptions} loans={loanRows} loanProducts={loanProductOptions} />
+                <LoanManagement
+                  members={memberOptions}
+                  loans={loanRows}
+                  loanProducts={loanProductOptions}
+                  role={role}
+                  initialQuery={query}
+                  initialStatusFilter={status === "PENDING" || status === "APPROVED" || status === "DISBURSED" || status === "ACTIVE" || status === "DEFAULTED" || status === "CLEARED" ? status : "ALL"}
+                  initialSortBy={sortBy}
+                />
 
                 <section className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <Link
+                      prefetch={false}
                       href={
                         page > 1
                           ? `/dashboard/loans?${new URLSearchParams({
                               ...(status ? { status } : {}),
+                              ...(query ? { q: query } : {}),
+                              ...(sortBy ? { sort: sortBy } : {}),
                               page: String(page - 1),
                             }).toString()}`
                           : "#"
@@ -813,12 +844,18 @@ export default async function LoansPage({
                     >
                       Previous
                     </Link>
-                    <span className="text-sm text-muted-foreground">Page {page}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Page {page}
+                      {pagedLoans.total > 0 ? ` of ${Math.max(1, Math.ceil(pagedLoans.total / pagedLoans.pageSize))}` : ""}
+                    </span>
                     <Link
+                      prefetch={false}
                       href={
                         hasNextPage
                           ? `/dashboard/loans?${new URLSearchParams({
                               ...(status ? { status } : {}),
+                              ...(query ? { q: query } : {}),
+                              ...(sortBy ? { sort: sortBy } : {}),
                               page: String(page + 1),
                             }).toString()}`
                           : "#"

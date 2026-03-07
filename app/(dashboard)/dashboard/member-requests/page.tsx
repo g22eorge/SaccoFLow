@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { prisma } from "@/src/server/db/prisma";
 import { MemberRequestsQueue } from "@/src/ui/components/member-requests-queue";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 export default async function MemberRequestsPage() {
   const { saccoId, role } = await requireSaccoContext();
@@ -43,7 +44,7 @@ export default async function MemberRequestsPage() {
   });
 
   const memberMap = new Map(
-    members.map((member) => [member.id, `${member.memberNumber} - ${member.fullName}`]),
+    members.map((member) => [member.id, formatMemberLabel(member.memberNumber, member.fullName)]),
   );
 
   const requests = logs.map((log) => {
@@ -51,7 +52,7 @@ export default async function MemberRequestsPage() {
     const memberId = log.entityId.split(":")[0];
     return {
       id: log.id,
-      memberLabel: memberMap.get(memberId) ?? memberId,
+      memberLabel: memberMap.get(memberId) ?? "Unknown member",
       type: String(after.type ?? "REQUEST"),
       amount: String(after.amount ?? "0"),
       status: String(after.status ?? "PENDING"),

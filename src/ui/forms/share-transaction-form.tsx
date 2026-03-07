@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 type MemberOption = {
   id: string;
@@ -82,7 +83,7 @@ export function ShareTransactionForm({
         >
           {members.map((member) => (
             <option key={member.id} value={member.id}>
-              {member.memberNumber} - {member.fullName}
+              {formatMemberLabel(member.memberNumber, member.fullName)}
             </option>
           ))}
         </select>

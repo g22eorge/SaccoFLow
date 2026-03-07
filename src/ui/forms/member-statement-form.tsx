@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 type MemberOption = {
   id: string;
@@ -110,7 +111,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
         >
           {members.map((member) => (
             <option key={member.id} value={member.id}>
-              {member.memberNumber} - {member.fullName} (Shares: {formatMoney(member.shareBalance)})
+              {formatMemberLabel(member.memberNumber, member.fullName)} (Shares: {formatMoney(member.shareBalance)})
             </option>
           ))}
         </select>
@@ -148,7 +149,7 @@ export function MemberStatementForm({ members }: { members: MemberOption[] }) {
           <div>
             <p className="text-sm text-slate-500">Member</p>
             <p className="font-semibold">
-              {statement.member.memberNumber} - {statement.member.fullName}
+              {formatMemberLabel(statement.member.memberNumber, statement.member.fullName)}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

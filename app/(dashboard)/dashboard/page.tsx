@@ -252,7 +252,7 @@ export default async function Page() {
                     <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Liquidity Lendable</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.kpis.lendableFunds}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      After reserve ({dashboard.monitors.liquidityReserveRatioPercent}%) and pending disbursements
+                      After reserve ({dashboard.monitors.liquidityReserveRatioPercent}%), pending disbursements, and posted external capital
                     </p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
@@ -302,11 +302,16 @@ export default async function Page() {
                       </div>
                       <div>
                         <div className="mb-1 flex items-center justify-between text-sm">
-                          <span>External Capital</span>
-                          <span>{externalShare.toFixed(1)}%</span>
+                          <span className="font-medium text-foreground">External Capital</span>
+                          <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700">
+                            {externalShare.toFixed(1)}%
+                          </span>
                         </div>
                         <div className="h-2 rounded-full bg-muted">
-                          <div className="h-2 rounded-full bg-slate-500" style={{ width: `${externalShare}%` }} />
+                          <div
+                            className="h-2 rounded-full bg-sky-600"
+                            style={{ width: `${Math.max(externalShare, 2)}%` }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -354,7 +359,7 @@ export default async function Page() {
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Lending Headroom</p>
                         <p className="mt-1 text-xl font-semibold">{formatMoney(lendingHeadroom)}</p>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Includes deployable shares {formatMoney(deployableShareCapital)}.
+                          Includes deployable shares {formatMoney(deployableShareCapital)} and posted external capital {dashboard.monitors.deployableExternalCapital}.
                         </p>
                       </article>
                     </div>

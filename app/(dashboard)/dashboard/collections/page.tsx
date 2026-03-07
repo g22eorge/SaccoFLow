@@ -3,6 +3,7 @@ import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { prisma } from "@/src/server/db/prisma";
 import { SiteHeader } from "@/components/site-header";
 import { CollectionsWorkbench } from "@/src/ui/components/collections-workbench";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -33,7 +34,7 @@ export default async function CollectionsPage() {
     }),
     prisma.member.findMany({
       where: { saccoId },
-      select: { id: true, fullName: true },
+      select: { id: true, memberNumber: true, fullName: true },
     }),
     prisma.auditLog.findMany({
       where: {
@@ -50,7 +51,9 @@ export default async function CollectionsPage() {
     }),
   ]);
 
-  const memberMap = new Map(members.map((member) => [member.id, member.fullName]));
+  const memberMap = new Map(
+    members.map((member) => [member.id, formatMemberLabel(member.memberNumber, member.fullName)]),
+  );
 
   const latestActionByLoanId = new Map<
     string,
@@ -130,7 +133,7 @@ export default async function CollectionsPage() {
 
       return {
         loanId: loan.id,
-        memberName: memberMap.get(loan.memberId) ?? loan.memberId,
+        memberName: memberMap.get(loan.memberId) ?? "Unknown member",
         status: loan.status,
         dueAt: loan.dueAt?.toISOString() ?? null,
         daysToDue,

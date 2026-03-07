@@ -6,6 +6,7 @@ import {
   externalCapitalStatusSchema,
 } from "@/src/server/validators/external-capital";
 import { AuditService } from "@/src/server/services/audit.service";
+import { DashboardService } from "@/src/server/services/dashboard.service";
 
 const LARGE_INFLOW_THRESHOLD = new Prisma.Decimal(5_000_000);
 
@@ -132,6 +133,8 @@ export const ExternalCapitalService = {
       after: txn,
     });
 
+    DashboardService.invalidateCache(parsed.saccoId);
+
     return txn;
   },
 
@@ -175,6 +178,8 @@ export const ExternalCapitalService = {
       before: existing,
       after: updated,
     });
+
+    DashboardService.invalidateCache(input.saccoId);
 
     return updated;
   },
@@ -234,6 +239,8 @@ export const ExternalCapitalService = {
       before: existing,
       after: correction,
     });
+
+    DashboardService.invalidateCache(input.saccoId);
 
     return correction;
   },

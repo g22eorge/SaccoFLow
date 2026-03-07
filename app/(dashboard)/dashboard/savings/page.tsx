@@ -5,6 +5,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { SavingsTransactionForm } from "@/src/ui/forms/savings-transaction-form";
 import { SavingsTransactionsPanel } from "@/src/ui/components/savings-transactions-panel";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 import { SiteHeader } from "@/components/site-header";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
@@ -43,9 +44,16 @@ export default async function SavingsPage({
   const memberMap = new Map(
     members.map((member) => [
       member.id,
-      `${member.memberNumber} - ${member.fullName}`,
+      formatMemberLabel(member.memberNumber, member.fullName),
     ]),
   );
+  const membersInTransactions = await MembersService.getByIds(
+    saccoId,
+    [...new Set(transactions.map((transaction) => transaction.memberId))],
+  );
+  for (const member of membersInTransactions) {
+    memberMap.set(member.id, formatMemberLabel(member.memberNumber, member.fullName));
+  }
   const balanceMap = new Map(
     balances.map((entry) => [entry.memberId, entry.balance.toString()]),
   );
@@ -93,7 +101,7 @@ export default async function SavingsPage({
 
   const transactionRows = transactions.map((transaction) => ({
     id: transaction.id,
-    memberLabel: memberMap.get(transaction.memberId) ?? transaction.memberId,
+    memberLabel: memberMap.get(transaction.memberId) ?? "Unknown member",
     type: transaction.type,
     amount: transaction.amount.toString(),
     note: transaction.note,

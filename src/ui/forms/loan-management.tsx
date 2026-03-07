@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 type MemberOption = {
   id: string;
@@ -90,16 +91,57 @@ const loanStatusChipClass = (status: string) => {
   return "border-zinc-200 bg-zinc-50 text-zinc-700";
 };
 
+const processFlowLabel = (loan: LoanRow) => {
+  if (loan.status === "PENDING") {
+    return `Approval in progress (${loan.approvalCurrentCount}/${loan.approvalRequiredCount})`;
+  }
+  if (loan.status === "APPROVED" && !loan.scheduleApprovedByMember) {
+    return "Waiting member approval";
+  }
+  if (loan.status === "APPROVED" && loan.scheduleApprovedByMember) {
+    return "Ready for disbursement";
+  }
+  if (loan.status === "DISBURSED") {
+    return "Disbursed, awaiting repayment cycle";
+  }
+  if (loan.status === "ACTIVE") {
+    return "Repayment in progress";
+  }
+  if (loan.status === "DEFAULTED") {
+    return "Defaulted, move to collections";
+  }
+  if (loan.status === "CLEARED") {
+    return "Cleared and closed";
+  }
+  return "In process";
+};
+
 export function LoanManagement({
   members,
   loans,
   loanProducts,
+  role,
+  initialQuery,
+  initialStatusFilter,
+  initialSortBy,
 }: {
   members: MemberOption[];
   loans: LoanRow[];
   loanProducts: LoanProductOption[];
+  role: string;
+  initialQuery: string;
+  initialStatusFilter:
+    | "ALL"
+    | "PENDING"
+    | "APPROVED"
+    | "DISBURSED"
+    | "ACTIVE"
+    | "DEFAULTED"
+    | "CLEARED";
+  initialSortBy: "name" | "outstanding" | "dueSoon";
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeLoanProducts = loanProducts.filter((product) => product.isActive);
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
@@ -117,24 +159,39 @@ export function LoanManagement({
   const [newProductMonthlyRate, setNewProductMonthlyRate] = useState("");
   const [repayAmounts, setRepayAmounts] = useState<Record<string, string>>({});
   const [busyLoanId, setBusyLoanId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<"approve" | "disburse" | "repay" | null>(null);
   const [loadingApply, setLoadingApply] = useState(false);
   const [loadingCreateProduct, setLoadingCreateProduct] = useState(false);
   const [loadingSeedStandardProducts, setLoadingSeedStandardProducts] = useState(false);
   const [loadingProductActionId, setLoadingProductActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "PENDING" | "APPROVED" | "DISBURSED" | "ACTIVE" | "DEFAULTED" | "CLEARED"
-  >("ALL");
-  const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">("dueSoon");
+  >(initialStatusFilter);
+  const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">(initialSortBy);
   const [viewMode, setViewMode] = useState<"CARDS" | "TABLE">("TABLE");
+  const [optimisticStatusByLoanId, setOptimisticStatusByLoanId] = useState<Record<string, string>>({});
+  const [, startTransition] = useTransition();
+
+  const canApprove = ["SACCO_ADMIN", "LOAN_OFFICER", "TREASURER", "CHAIRPERSON"].includes(role);
+  const canDisburse = ["SACCO_ADMIN", "TREASURER"].includes(role);
+  const canRepay = ["SACCO_ADMIN", "TREASURER"].includes(role);
 
   const selectedLoanProduct =
     loanProducts.find((product) => product.id === loanProductId) ?? activeLoanProducts[0] ?? null;
 
+  const currentQueryParam = searchParams.get("q") ?? "";
+  const currentStatusParam = searchParams.get("status") ?? "ALL";
+  const currentSortParam = searchParams.get("sort") ?? "dueSoon";
+
   useEffect(() => {
-    const status = searchParams.get("status");
+    setQuery((prev) => (prev === currentQueryParam ? prev : currentQueryParam));
+  }, [currentQueryParam]);
+
+  useEffect(() => {
+    const status = currentStatusParam;
     if (
       status === "PENDING" ||
       status === "APPROVED" ||
@@ -143,11 +200,67 @@ export function LoanManagement({
       status === "DEFAULTED" ||
       status === "CLEARED"
     ) {
-      setStatusFilter(status);
+      setStatusFilter((prev) => (prev === status ? prev : status));
       return;
     }
-    setStatusFilter("ALL");
-  }, [searchParams]);
+    setStatusFilter((prev) => (prev === "ALL" ? prev : "ALL"));
+  }, [currentStatusParam]);
+
+  useEffect(() => {
+    const sort = currentSortParam;
+    if (sort === "name" || sort === "outstanding" || sort === "dueSoon") {
+      setSortBy((prev) => (prev === sort ? prev : sort));
+      return;
+    }
+    setSortBy((prev) => (prev === "dueSoon" ? prev : "dueSoon"));
+  }, [currentSortParam]);
+
+  const replaceFilters = useCallback(
+    (next: { q?: string; status?: string; sort?: string; page?: string }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const q = next.q ?? query;
+      const status = next.status ?? statusFilter;
+      const sort = next.sort ?? sortBy;
+
+      if (q.trim()) {
+        params.set("q", q.trim());
+      } else {
+        params.delete("q");
+      }
+
+      if (status && status !== "ALL") {
+        params.set("status", status);
+      } else {
+        params.delete("status");
+      }
+
+      if (sort && sort !== "dueSoon") {
+        params.set("sort", sort);
+      } else {
+        params.delete("sort");
+      }
+
+      params.set("page", next.page ?? "1");
+      const nextUrl = `${pathname}?${params.toString()}`;
+      const currentUrl = `${pathname}?${searchParams.toString()}`;
+      if (nextUrl === currentUrl) {
+        return;
+      }
+      startTransition(() => {
+        router.replace(nextUrl);
+      });
+    },
+    [pathname, query, router, searchParams, sortBy, startTransition, statusFilter],
+  );
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (currentQueryParam !== query) {
+        replaceFilters({ q: query });
+      }
+    }, 320);
+    return () => clearTimeout(handle);
+  }, [currentQueryParam, query, replaceFilters]);
 
   const totalOutstanding = useCallback((loan: LoanRow) => {
     const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
@@ -158,33 +271,16 @@ export function LoanManagement({
     );
   }, []);
 
-  const visibleLoans = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const filtered = loans.filter((loan) => {
-      const matchesStatus = statusFilter === "ALL" ? true : loan.status === statusFilter;
-      const haystack = `${loan.memberName} ${loan.status}`.toLowerCase();
-      const matchesQuery = normalizedQuery ? haystack.includes(normalizedQuery) : true;
-      return matchesStatus && matchesQuery;
-    });
+  const derivedLoans = useMemo(
+    () =>
+      loans.map((loan) => ({
+        ...loan,
+        status: optimisticStatusByLoanId[loan.id] ?? loan.status,
+      })),
+    [loans, optimisticStatusByLoanId],
+  );
 
-    if (sortBy === "outstanding") {
-      return [...filtered].sort((a, b) => {
-        const aOutstanding = totalOutstanding(a);
-        const bOutstanding = totalOutstanding(b);
-        return bOutstanding - aOutstanding;
-      });
-    }
-
-    if (sortBy === "name") {
-      return [...filtered].sort((a, b) => a.memberName.localeCompare(b.memberName));
-    }
-
-    return [...filtered].sort((a, b) => {
-      const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
-      const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
-      return aDue - bDue;
-    });
-  }, [loans, query, sortBy, statusFilter, totalOutstanding]);
+  const visibleLoans = useMemo(() => derivedLoans, [derivedLoans]);
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -313,6 +409,7 @@ export function LoanManagement({
     body?: Record<string, unknown>,
   ) => {
     setBusyLoanId(loanId);
+    setBusyAction(action);
     setError(null);
     setMessage(null);
 
@@ -327,14 +424,50 @@ export function LoanManagement({
         throw new Error(payload.error?.message ?? `Failed to ${action} loan`);
       }
 
-      setMessage(`Loan ${action} action successful.`);
-      router.refresh();
+      if (action === "approve") {
+        const approvalMatrix = payload.data?.approvalMatrix as
+          | {
+              approvalsCount?: number;
+              requiredApproverCount?: number;
+              alreadyApproved?: boolean;
+            }
+          | undefined;
+
+        if (approvalMatrix?.alreadyApproved) {
+          setMessage("Your approval is already recorded. Waiting for the next required approver.");
+        } else if (
+          typeof approvalMatrix?.approvalsCount === "number" &&
+          typeof approvalMatrix?.requiredApproverCount === "number" &&
+          approvalMatrix.approvalsCount < approvalMatrix.requiredApproverCount
+        ) {
+          setMessage(
+            `Approval recorded (${approvalMatrix.approvalsCount}/${approvalMatrix.requiredApproverCount}). Waiting next approver.`,
+          );
+        } else {
+          setMessage("Loan approved. Ready for disbursement workflow.");
+          setOptimisticStatusByLoanId((prev) => ({ ...prev, [loanId]: "APPROVED" }));
+        }
+      } else if (action === "disburse") {
+        setOptimisticStatusByLoanId((prev) => ({ ...prev, [loanId]: "DISBURSED" }));
+        setMessage("Disbursement posted. Refreshing balances...");
+      } else {
+        setMessage(`Loan ${action} action successful.`);
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("saccoflow:badge-refresh"));
+      }
+      startTransition(() => {
+        router.refresh();
+      });
+      return true;
     } catch (actionError) {
       setError(
         actionError instanceof Error ? actionError.message : "Unexpected error",
       );
+      return false;
     } finally {
       setBusyLoanId(null);
+      setBusyAction(null);
     }
   };
 
@@ -346,44 +479,23 @@ export function LoanManagement({
       return;
     }
 
-    await callLoanAction(loan.id, "repay", {
+    const repaid = await callLoanAction(loan.id, "repay", {
       memberId: loan.memberId,
       amount,
     });
+
+    if (repaid) {
+      setRepayAmounts((prev) => ({ ...prev, [loan.id]: "" }));
+    }
   };
 
-  const exportVisibleLoans = () => {
-    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
-    const rows = [
-      [
-        "member",
-        "status",
-        "principal",
-        "outstandingPrincipal",
-        "outstandingInterest",
-        "outstandingPenalty",
-        "dueAt",
-        "termMonths",
-      ],
-      ...visibleLoans.map((loan) => [
-        loan.memberName,
-        loan.status,
-        loan.principalAmount,
-        loan.outstandingPrincipal,
-        loan.outstandingInterest,
-        loan.outstandingPenalty,
-        loan.dueAt ?? "",
-        String(loan.termMonths),
-      ]),
-    ];
-    const csv = rows.map((row) => row.map((cell) => escape(cell)).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "loans.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportLoans = (format: "excel" | "pdf") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("format", format);
+    if (!params.get("page")) {
+      params.set("page", "1");
+    }
+    window.location.href = `/api/loans/export?${params.toString()}`;
   };
 
   return (
@@ -421,12 +533,12 @@ export function LoanManagement({
             onChange={(event) => setMemberId(event.target.value)}
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.memberNumber} - {member.fullName} (Shares: {formatMoney(member.shareBalance)})
-              </option>
-            ))}
-          </select>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {formatMemberLabel(member.memberNumber, member.fullName)} (Shares: {formatMoney(member.shareBalance)})
+                </option>
+              ))}
+            </select>
           <input
             type="number"
             required
@@ -651,18 +763,18 @@ export function LoanManagement({
             />
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value as
-                    | "ALL"
-                    | "PENDING"
-                    | "APPROVED"
-                    | "DISBURSED"
-                    | "ACTIVE"
-                    | "DEFAULTED"
-                    | "CLEARED",
-                )
-              }
+              onChange={(event) => {
+                const nextStatus = event.target.value as
+                  | "ALL"
+                  | "PENDING"
+                  | "APPROVED"
+                  | "DISBURSED"
+                  | "ACTIVE"
+                  | "DEFAULTED"
+                  | "CLEARED";
+                setStatusFilter(nextStatus);
+                replaceFilters({ status: nextStatus, page: "1" });
+              }}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="ALL">All statuses</option>
@@ -675,9 +787,11 @@ export function LoanManagement({
             </select>
             <select
               value={sortBy}
-              onChange={(event) =>
-                setSortBy(event.target.value as "name" | "outstanding" | "dueSoon")
-              }
+              onChange={(event) => {
+                const nextSort = event.target.value as "name" | "outstanding" | "dueSoon";
+                setSortBy(nextSort);
+                replaceFilters({ sort: nextSort, page: "1" });
+              }}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="dueSoon">Sort: Due soon</option>
@@ -685,13 +799,22 @@ export function LoanManagement({
               <option value="name">Sort: Member name</option>
             </select>
           </div>
-          <button
-            type="button"
-            onClick={exportVisibleLoans}
-            className="rounded-lg border border-border px-3 py-2 text-sm"
-          >
-            Export CSV
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => exportLoans("excel")}
+              className="rounded-lg border border-border px-3 py-2 text-sm"
+            >
+              Export Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => exportLoans("pdf")}
+              className="rounded-lg border border-border px-3 py-2 text-sm"
+            >
+              Export PDF
+            </button>
+          </div>
           <div className="ml-auto flex gap-2">
             <button
               type="button"
@@ -712,6 +835,23 @@ export function LoanManagement({
               Cards
             </button>
           </div>
+        </div>
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="font-semibold">Process flow documentation</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1 leading-5">
+            <span>PENDING (matrix approvals)</span>
+            <span aria-hidden="true">→</span>
+            <span>APPROVED</span>
+            <span aria-hidden="true">→</span>
+            <span className="font-semibold">Waiting member approval</span>
+            <span aria-hidden="true">→</span>
+            <span>DISBURSED</span>
+            <span aria-hidden="true">→</span>
+            <span>ACTIVE</span>
+            <span aria-hidden="true">→</span>
+            <span>CLEARED</span>
+          </div>
+          <p className="mt-1 whitespace-normal leading-5">Risk exception path: DEFAULTED -&gt; collections.</p>
         </div>
         {viewMode === "CARDS" ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -813,34 +953,42 @@ export function LoanManagement({
                       </span>
                     </p>
                   ) : null}
+                  <p>
+                    Process flow:{" "}
+                    <span className="font-semibold text-foreground">{processFlowLabel(loan)}</span>
+                  </p>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {loan.status === "PENDING" ? (
+                  {loan.status === "PENDING" && canApprove ? (
                     <button
                       type="button"
                       disabled={busyLoanId === loan.id}
                       onClick={() => callLoanAction(loan.id, "approve")}
                       className="rounded-lg border border-border px-2 py-1"
                     >
-                      {loan.approvalCurrentCount > 0 ? "Approve next step" : "Start approval"}
+                      {busyLoanId === loan.id && busyAction === "approve"
+                        ? "Approving..."
+                        : loan.approvalCurrentCount > 0
+                          ? "Approve next step"
+                          : "Start approval"}
                     </button>
                   ) : null}
-                  {loan.status === "APPROVED" ? (
+                  {loan.status === "APPROVED" && canDisburse ? (
                     <>
                       <button
                         type="button"
-                        disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
+                        disabled={busyLoanId === loan.id}
                         onClick={() => callLoanAction(loan.id, "disburse")}
                         className="rounded-lg border border-border px-2 py-1"
                       >
-                        Disburse
+                        {busyLoanId === loan.id && busyAction === "disburse" ? "Disbursing..." : "Disburse"}
                       </button>
                       {!loan.scheduleApprovedByMember ? (
-                        <p className="text-xs text-amber-700">Waiting for member schedule approval</p>
+                        <p className="text-xs text-amber-700">Waiting member approval (authorized staff can override on disburse)</p>
                       ) : null}
                     </>
                   ) : null}
-                  {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
+                  {["ACTIVE", "DISBURSED"].includes(loan.status) && canRepay ? (
                     <>
                       <input
                         type="number"
@@ -862,7 +1010,7 @@ export function LoanManagement({
                         onClick={() => handleRepay(loan)}
                         className="rounded-lg border border-border px-2 py-1"
                       >
-                        Repay
+                        {busyLoanId === loan.id && busyAction === "repay" ? "Posting..." : "Repay"}
                       </button>
                     </>
                   ) : null}
@@ -871,19 +1019,17 @@ export function LoanManagement({
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1180px] text-sm">
+          <div className="w-full max-w-full overflow-x-auto rounded-lg border border-border bg-background">
+            <table className="w-full min-w-[940px] text-sm">
               <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">Member</th>
+                  <th className="min-w-[25ch] px-3 py-2">Member</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Product</th>
                   <th className="px-3 py-2">Principal</th>
                   <th className="px-3 py-2">Outstanding</th>
                   <th className="px-3 py-2">Due</th>
-                  <th className="px-3 py-2">Approval</th>
-                  <th className="px-3 py-2">Auto Score</th>
-                  <th className="px-3 py-2">Reasons</th>
+                  <th className="min-w-[22ch] px-3 py-2">Process Flow</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
@@ -899,7 +1045,7 @@ export function LoanManagement({
 
                   return (
                     <tr key={loan.id} className="border-t align-top hover:bg-muted/40">
-                      <td className="px-3 py-2 text-xs font-semibold">
+                      <td className="min-w-[25ch] px-3 py-2 text-xs font-semibold">
                         {loan.memberName}
                         {trustPendingReasons.length > 0 ? (
                           <p className="mt-1 text-[11px] text-amber-700">
@@ -927,50 +1073,51 @@ export function LoanManagement({
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {loan.dueAt ? formatUtcDate(loan.dueAt) : "-"} ({loan.termMonths}m)
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <td className="min-w-[22ch] px-3 py-2 text-xs text-muted-foreground">
+                        <p>{processFlowLabel(loan)}</p>
                         {loan.status === "PENDING" ? (
-                          <>
-                            {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
-                            {loan.approvalRoleGroups.length > 0 ? ` | ${loan.approvalRoleGroups.join("+")}` : ""}
+                          <p className="mt-1 text-[11px]">
+                            Approval {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
                             {loan.approvalSlaDueAt ? ` | SLA ${formatUtcDate(loan.approvalSlaDueAt)}` : ""}
-                          </>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {loan.scheduleAutoApproved
-                          ? `${loan.scheduleApprovalScore ?? "-"}${loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}`
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {loan.scheduleApprovalReasons.length > 0
-                          ? loan.scheduleApprovalReasons.join(", ")
-                          : "-"}
+                          </p>
+                        ) : null}
+                        {loan.scheduleAutoApproved ? (
+                          <p className="mt-1 text-[11px]">
+                            Auto score {loan.scheduleApprovalScore ?? "-"}
+                            {loan.scheduleApprovalRiskTier ? ` (${loan.scheduleApprovalRiskTier})` : ""}
+                          </p>
+                        ) : null}
+                        {loan.scheduleApprovalReasons.length > 0 ? (
+                          <p className="mt-1 line-clamp-2 text-[11px]">{loan.scheduleApprovalReasons.join(", ")}</p>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2 text-xs">
                         <div className="flex min-w-44 flex-wrap items-center gap-2">
-                          {loan.status === "PENDING" ? (
+                          {loan.status === "PENDING" && canApprove ? (
                             <button
                               type="button"
                               disabled={busyLoanId === loan.id}
                               onClick={() => callLoanAction(loan.id, "approve")}
                               className="rounded-lg border border-border px-2 py-1"
                             >
-                              {loan.approvalCurrentCount > 0 ? "Approve next" : "Start approval"}
+                              {busyLoanId === loan.id && busyAction === "approve"
+                                ? "Approving..."
+                                : loan.approvalCurrentCount > 0
+                                  ? "Approve next"
+                                  : "Start approval"}
                             </button>
                           ) : null}
-                          {loan.status === "APPROVED" ? (
+                          {loan.status === "APPROVED" && canDisburse ? (
                             <button
                               type="button"
-                              disabled={busyLoanId === loan.id || !loan.scheduleApprovedByMember}
+                              disabled={busyLoanId === loan.id}
                               onClick={() => callLoanAction(loan.id, "disburse")}
                               className="rounded-lg border border-border px-2 py-1"
                             >
-                              Disburse
+                              {busyLoanId === loan.id && busyAction === "disburse" ? "Disbursing..." : "Disburse"}
                             </button>
                           ) : null}
-                          {["ACTIVE", "DISBURSED"].includes(loan.status) ? (
+                          {["ACTIVE", "DISBURSED"].includes(loan.status) && canRepay ? (
                             <>
                               <input
                                 type="number"
@@ -992,12 +1139,12 @@ export function LoanManagement({
                                 onClick={() => handleRepay(loan)}
                                 className="rounded-lg border border-border px-2 py-1"
                               >
-                                Repay
+                                {busyLoanId === loan.id && busyAction === "repay" ? "Posting..." : "Repay"}
                               </button>
                             </>
                           ) : null}
                           {loan.status === "APPROVED" && !loan.scheduleApprovedByMember ? (
-                            <p className="text-[11px] text-amber-700">Waiting member approval</p>
+                            <p className="text-[11px] text-amber-700">Waiting member approval (staff override available)</p>
                           ) : null}
                         </div>
                       </td>

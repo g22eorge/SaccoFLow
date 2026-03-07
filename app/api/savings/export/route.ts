@@ -5,6 +5,7 @@ import { MembersService } from "@/src/server/services/members.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { toCsv, toSimplePdf } from "@/src/server/export/tabular";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
+import { formatMemberLabel } from "@/src/lib/member-label";
 import { withApiHandler } from "@/src/server/api/http";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
@@ -20,16 +21,20 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId, id: actorId } = await requireSaccoContext();
 
   const page = Math.max(1, Number(request.nextUrl.searchParams.get("page") ?? "1") || 1);
-  const format = request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "csv";
+  const formatParam = request.nextUrl.searchParams.get("format");
+  const format =
+    formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";
 
   const transactions = await SavingsService.list({ saccoId, page });
   const memberIds = [...new Set(transactions.map((tx) => tx.memberId))];
   const members = await MembersService.getByIds(saccoId, memberIds);
-  const memberMap = new Map(members.map((member) => [member.id, `${member.memberNumber} - ${member.fullName}`]));
+  const memberMap = new Map(
+    members.map((member) => [member.id, formatMemberLabel(member.memberNumber, member.fullName)]),
+  );
 
   const headers = ["member", "type", "amount", "note", "createdAt"];
   const rows = transactions.map((tx) => [
-    memberMap.get(tx.memberId) ?? tx.memberId,
+    memberMap.get(tx.memberId) ?? "Unknown member",
     tx.type,
     tx.amount.toString(),
     tx.note ?? "",
@@ -60,8 +65,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   return new NextResponse(csv, {
     status: 200,
     headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="savings-page-${page}.csv"`,
+      "content-type":
+        format === "excel"
+          ? "application/vnd.ms-excel; charset=utf-8"
+          : "text/csv; charset=utf-8",
+      "content-disposition":
+        format === "excel"
+          ? `attachment; filename="savings-page-${page}.xls"`
+          : `attachment; filename="savings-page-${page}.csv"`,
     },
   });
 });

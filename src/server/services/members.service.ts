@@ -4,6 +4,7 @@ import {
   updateMemberSchema,
 } from "@/src/server/validators/members";
 import { AuditService } from "@/src/server/services/audit.service";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 export const MembersService = {
   async generateNextMemberNumber(saccoId: string) {
@@ -83,7 +84,12 @@ export const MembersService = {
 
   async create(payload: unknown, actorId?: string) {
     const data = createMemberSchema.parse(payload);
-    const member = await prisma.member.create({ data });
+    const member = await prisma.member.create({
+      data: {
+        ...data,
+        fullName: formatMemberLabel(data.memberNumber, data.fullName),
+      },
+    });
     await AuditService.record({
       saccoId: member.saccoId,
       actorId,
@@ -105,9 +111,17 @@ export const MembersService = {
     const existing = await prisma.member.findFirstOrThrow({
       where: { id, saccoId },
     });
+    const nextMemberNumber = data.memberNumber ?? existing.memberNumber;
+    const nextFullName =
+      data.fullName !== undefined
+        ? formatMemberLabel(nextMemberNumber, data.fullName)
+        : existing.fullName;
     const updated = await prisma.member.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        fullName: nextFullName,
+      },
     });
     await AuditService.record({
       saccoId,

@@ -74,6 +74,18 @@ const navMainItems: SidebarItem[] = [
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR", "BOARD_MEMBER"],
     },
     {
+      title: "Savings",
+      url: "/dashboard/savings",
+      icon: IconCash,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
+      title: "Shares",
+      url: "/dashboard/shares",
+      icon: IconCurrencyDollar,
+      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
+    },
+    {
       title: "Loans",
       url: "/dashboard/loans",
       icon: IconCurrencyDollar,
@@ -96,18 +108,6 @@ const navMainItems: SidebarItem[] = [
       url: "/dashboard/ai-insights",
       icon: IconReport,
       roles: ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "BOARD_MEMBER", "TREASURER", "AUDITOR", "LOAN_OFFICER"],
-    },
-    {
-      title: "Savings",
-      url: "/dashboard/savings",
-      icon: IconCash,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
-    },
-    {
-      title: "Shares",
-      url: "/dashboard/shares",
-      icon: IconCurrencyDollar,
-      roles: ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER", "LOAN_OFFICER"],
     },
     {
       title: "Reports",
@@ -236,15 +236,60 @@ export function AppSidebar({
   badges?: {
     pendingLoanRequests?: number
     pendingMemberRequests?: number
+    defaultedCollectionCases?: number
   }
 }) {
+  const [liveBadges, setLiveBadges] = React.useState({
+    pendingLoanRequests: badges?.pendingLoanRequests ?? 0,
+    pendingMemberRequests: badges?.pendingMemberRequests ?? 0,
+    defaultedCollectionCases: badges?.defaultedCollectionCases ?? 0,
+  })
+
+  React.useEffect(() => {
+    let active = true
+
+    const refreshBadges = async () => {
+      try {
+        const response = await fetch("/api/sidebar/badges", { cache: "no-store" })
+        const payload = await response.json()
+        if (!response.ok || !payload?.success || !active) {
+          return
+        }
+        setLiveBadges({
+          pendingLoanRequests: Number(payload.data?.pendingLoanRequests ?? 0),
+          pendingMemberRequests: Number(payload.data?.pendingMemberRequests ?? 0),
+          defaultedCollectionCases: Number(payload.data?.defaultedCollectionCases ?? 0),
+        })
+      } catch {
+        // keep last known badge values
+      }
+    }
+
+    const onRefresh = () => {
+      void refreshBadges()
+    }
+
+    void refreshBadges()
+    const interval = window.setInterval(onRefresh, 8000)
+    window.addEventListener("saccoflow:badge-refresh", onRefresh)
+
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      window.removeEventListener("saccoflow:badge-refresh", onRefresh)
+    }
+  }, [])
+
   const navMain = navMainItems
     .map((item) => {
       if (item.url === "/dashboard/loans") {
-        return { ...item, badge: badges?.pendingLoanRequests ?? 0 }
+        return { ...item, badge: liveBadges.pendingLoanRequests }
       }
       if (item.url === "/dashboard/member-requests") {
-        return { ...item, badge: badges?.pendingMemberRequests ?? 0 }
+        return { ...item, badge: liveBadges.pendingMemberRequests }
+      }
+      if (item.url === "/dashboard/collections") {
+        return { ...item, badge: liveBadges.defaultedCollectionCases }
       }
       return item
     })

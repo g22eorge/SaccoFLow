@@ -8,6 +8,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { MemberRequestsAdminPanel } from "@/src/ui/components/member-requests-admin-panel";
+import { formatMemberLabel } from "@/src/lib/member-label";
 
 export default async function MemberSnapshotPage({
   params,
@@ -203,9 +204,11 @@ export default async function MemberSnapshotPage({
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
                   Financial Snapshot
                 </p>
-                <h1 className="mt-2 text-2xl font-bold">{member.fullName}</h1>
+                <h1 className="mt-2 text-2xl font-bold">
+                  {formatMemberLabel(member.memberNumber, member.fullName)}
+                </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {member.memberNumber} {member.email ? `| ${member.email}` : ""}
+                  {member.email ? member.email : "No email on file"}
                 </p>
               </div>
               <Link

@@ -4,6 +4,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { ShareTransactionForm } from "@/src/ui/forms/share-transaction-form";
 import { SharesTransactionsPanel } from "@/src/ui/components/shares-transactions-panel";
 import { formatMoney } from "@/src/lib/money";
+import { formatMemberLabel } from "@/src/lib/member-label";
 import { SiteHeader } from "@/components/site-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -78,7 +79,7 @@ export default async function SharesPage({
       return {
         memberId: entry.memberId,
         label: member
-          ? `${member.memberNumber} - ${member.fullName}`
+          ? formatMemberLabel(member.memberNumber, member.fullName)
           : entry.memberId,
         balance,
       };
@@ -193,7 +194,7 @@ export default async function SharesPage({
   const transactionRows = transactions.map((entry) => ({
     id: entry.id,
     memberLabel: entry.member
-      ? `${entry.member.memberNumber} - ${entry.member.fullName}`
+      ? formatMemberLabel(entry.member.memberNumber, entry.member.fullName)
       : entry.memberId ?? "Unknown member",
     type:
       entry.eventType === "SHARE_PURCHASE"

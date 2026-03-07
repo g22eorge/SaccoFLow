@@ -8,6 +8,7 @@ import { LedgerService } from "@/src/server/services/ledger.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { LoanProductsService } from "@/src/server/services/loan-products.service";
+import { DashboardService } from "@/src/server/services/dashboard.service";
 
 type AllocationTarget = "PENALTY" | "INTEREST" | "PRINCIPAL";
 
@@ -39,6 +40,9 @@ const addMonths = (date: Date, months: number) => {
 
 const decimal = (value: Prisma.Decimal | number | null | undefined) =>
   new Prisma.Decimal(value ?? 0);
+
+const money = (value: Prisma.Decimal | number | null | undefined) =>
+  decimal(value).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
 const minDecimal = (a: Prisma.Decimal, b: Prisma.Decimal) =>
   a.lessThan(b) ? a : b;
@@ -334,6 +338,71 @@ const uniqueAllocationOrder = (targets: AllocationTarget[]) => {
 };
 
 export const LoansService = {
+  async listPaged(input: {
+    saccoId: string;
+    status?: string;
+    page?: number;
+    query?: string;
+    sortBy?: "dueSoon" | "outstanding" | "name";
+  }) {
+    const pageSize = 30;
+    const page = Math.max(input.page ?? 1, 1);
+    const skip = (page - 1) * pageSize;
+    const normalizedQuery = input.query?.trim() ?? "";
+
+    const where: Prisma.LoanWhereInput = {
+      saccoId: input.saccoId,
+      ...(input.status ? { status: input.status as LoanStatus } : {}),
+      ...(normalizedQuery
+        ? {
+            OR: [
+              { member: { fullName: { contains: normalizedQuery } } },
+              { member: { memberNumber: { contains: normalizedQuery } } },
+            ],
+          }
+        : {}),
+    };
+
+    const sortBy = input.sortBy ?? "dueSoon";
+    const orderBy: Prisma.LoanOrderByWithRelationInput[] =
+      sortBy === "name"
+        ? [{ member: { fullName: "asc" } }, { createdAt: "desc" }, { id: "desc" }]
+        : sortBy === "outstanding"
+          ? [
+              { outstandingPrincipal: "desc" },
+              { outstandingInterest: "desc" },
+              { outstandingPenalty: "desc" },
+              { id: "desc" },
+            ]
+          : [{ dueAt: "asc" }, { createdAt: "desc" }, { id: "desc" }];
+
+    const [rows, total] = await Promise.all([
+      prisma.loan.findMany({
+        where,
+        include: {
+          loanProduct: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy,
+        take: pageSize,
+        skip,
+      }),
+      prisma.loan.count({ where }),
+    ]);
+
+    return {
+      rows,
+      total,
+      page,
+      pageSize,
+      hasNextPage: skip + rows.length < total,
+    };
+  },
+
   async list(input: { saccoId: string; status?: string; page?: number }) {
     const pageSize = 30;
     const page = Math.max(input.page ?? 1, 1);
@@ -351,7 +420,7 @@ export const LoansService = {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: pageSize,
       skip,
     });
@@ -435,6 +504,8 @@ export const LoansService = {
       entityId: loan.id,
       after: loan,
     });
+
+    DashboardService.invalidateCache(parsed.saccoId);
 
     return loan;
   },
@@ -570,6 +641,7 @@ export const LoansService = {
     });
 
     if (!completed) {
+      DashboardService.invalidateCache(saccoId);
       return {
         ...existing,
         status: "PENDING",
@@ -579,6 +651,7 @@ export const LoansService = {
           requiredRoleGroups,
           completed: false,
           slaDueAtIso: nextState.slaDueAtIso,
+          alreadyApproved,
         },
       };
     }
@@ -630,6 +703,8 @@ export const LoansService = {
       }
     }
 
+    DashboardService.invalidateCache(saccoId);
+
     return loan;
   },
 
@@ -674,15 +749,37 @@ export const LoansService = {
           },
         });
       } else {
-        throw new Error("Member must approve loan payment schedule before disbursement");
+        await AuditService.record({
+          saccoId,
+          actorId,
+          action: "MANUAL_OVERRIDE",
+          entity: "LoanScheduleApproval",
+          entityId: `${existing.id}:${existing.memberId}`,
+          after: {
+            loanId: existing.id,
+            memberId: existing.memberId,
+            approvedAt: new Date().toISOString(),
+            approvalMode: "STAFF_OVERRIDE",
+            assessment: eligibility,
+            reason: "Schedule approval overridden by authorized disbursement role",
+            schedule: toInstallmentRows(existing),
+          },
+        });
       }
     }
+
+    const disbursedAt = new Date();
+    const recomputedDueAt = addMonths(disbursedAt, Math.max(1, existing.termMonths));
 
     const loan = await prisma.loan.update({
       where: { id },
       data: {
         status: "DISBURSED",
-        disbursedAt: new Date(),
+        disbursedAt,
+        dueAt:
+          existing.dueAt && existing.dueAt.getTime() > disbursedAt.getTime()
+            ? existing.dueAt
+            : recomputedDueAt,
       },
     });
 
@@ -703,6 +800,8 @@ export const LoansService = {
       before: existing,
       after: loan,
     });
+
+    DashboardService.invalidateCache(saccoId);
 
     return loan;
   },
@@ -774,7 +873,7 @@ export const LoansService = {
 
   async repay(id: string, payload: unknown, actorId?: string) {
     const parsed = loanRepaymentSchema.parse(payload);
-    const amount = new Prisma.Decimal(parsed.amount);
+    const amount = money(parsed.amount);
     const settings = await SettingsService.get(parsed.saccoId);
     const loan = await prisma.loan.findFirstOrThrow({
       where: { id, saccoId: parsed.saccoId },
@@ -826,15 +925,15 @@ export const LoansService = {
       }
     }
 
-    const penaltyDue = decimal(loan.outstandingPenalty).plus(penaltyIncrement);
-    const interestDue = decimal(loan.outstandingInterest);
-    const principalDue = decimal(loan.outstandingPrincipal);
+    const penaltyDue = money(decimal(loan.outstandingPenalty).plus(penaltyIncrement));
+    const interestDue = money(loan.outstandingInterest);
+    const principalDue = money(loan.outstandingPrincipal);
     const totalDue = penaltyDue.plus(interestDue).plus(principalDue);
 
     if (totalDue.equals(0)) {
       throw new Error("Loan has no outstanding balance");
     }
-    if (amount.greaterThan(totalDue)) {
+    if (amount.greaterThan(money(totalDue))) {
       if (
         settings.repaymentAllocation.overpaymentHandling === "HOLD_AS_CREDIT"
       ) {
@@ -874,28 +973,28 @@ export const LoansService = {
       remaining = remaining.minus(pay);
     }
 
-    if (remaining.greaterThan(0)) {
+    if (remaining.greaterThan(new Prisma.Decimal("0.009"))) {
       throw new Error("Repayment exceeds due amount");
     }
 
-    const nextOutstandingPenalty = buckets.PENALTY;
-    const nextOutstandingInterest = buckets.INTEREST;
-    const nextOutstandingPrincipal = buckets.PRINCIPAL;
+    const nextOutstandingPenalty = money(buckets.PENALTY);
+    const nextOutstandingInterest = money(buckets.INTEREST);
+    const nextOutstandingPrincipal = money(buckets.PRINCIPAL);
     const daysPastDue = Math.max(
       0,
       Math.ceil((now.getTime() - dueAt.getTime()) / DAY_MS),
     );
-    const fullyCleared = nextOutstandingPrincipal
+    const remainingDue = nextOutstandingPrincipal
       .plus(nextOutstandingInterest)
-      .plus(nextOutstandingPenalty)
-      .equals(0);
+      .plus(nextOutstandingPenalty);
+    const fullyCleared = remainingDue.lessThanOrEqualTo(new Prisma.Decimal("0.009"));
     const nextStatus = fullyCleared
       ? "CLEARED"
       : daysPastDue >= settings.delinquency.defaultAfterDaysPastDue
         ? "DEFAULTED"
         : "ACTIVE";
 
-    return prisma.$transaction(async (tx) => {
+    const repayment = await prisma.$transaction(async (tx) => {
       const repayment = await tx.loanRepayment.create({
         data: {
           saccoId: parsed.saccoId,
@@ -956,5 +1055,9 @@ export const LoansService = {
 
       return repayment;
     });
+
+    DashboardService.invalidateCache(parsed.saccoId);
+
+    return repayment;
   },
 };
