@@ -290,9 +290,28 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  loginChallenges LoginChallenge[]
 
   @@unique([email])
   @@map("user")
+}
+
+model LoginChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  channel     String   @default("EMAIL")
+  destination String
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model Session {

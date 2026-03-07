@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { auth } from "@/src/server/auth/auth";
 import { prisma } from "@/src/server/db/prisma";
+import {
+  TWO_FACTOR_SESSION_COOKIE,
+  getSessionTokenFromRequestCookies,
+} from "@/src/lib/auth-2fa";
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 type AssumedTenantContext = {
@@ -87,11 +91,29 @@ export const getSession = async () => {
   });
 };
 
+const requireSecondFactor = async (sessionUserId: string) => {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    process.env.DEMO_OTP_PREVIEW === "true"
+  ) {
+    return;
+  }
+
+  const cookieStore = await cookies();
+  const sessionToken = getSessionTokenFromRequestCookies(cookieStore);
+  const twoFactorSessionToken = cookieStore.get(TWO_FACTOR_SESSION_COOKIE)?.value;
+
+  if (!sessionToken || twoFactorSessionToken !== sessionUserId) {
+    throw new UnauthorizedError("Two-factor verification required", 401);
+  }
+};
+
 export const requireRoles = async (roles: Role[]) => {
   const session = await getSession();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session.user.id) {
     throw new UnauthorizedError("Missing authenticated user");
   }
+  await requireSecondFactor(session.user.id);
 
   const appUser = await prisma.appUser.findFirst({
     where: { email: session.user.email, isActive: true },
@@ -122,9 +144,10 @@ export const requireRoles = async (roles: Role[]) => {
 
 export const requireSaccoContext = async (): Promise<AppUserContext> => {
   const session = await getSession();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session.user.id) {
     throw new UnauthorizedError("Missing authenticated user");
   }
+  await requireSecondFactor(session.user.id);
 
   const appUser = await prisma.appUser.findFirst({
     where: { email: session.user.email, isActive: true },
@@ -170,9 +193,10 @@ export const requireWriteRoles = requireRoles;
 
 export const requirePlatformSuperAdmin = async () => {
   const session = await getSession();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session.user.id) {
     throw new UnauthorizedError("Missing authenticated user");
   }
+  await requireSecondFactor(session.user.id);
 
   const appUser = await prisma.appUser.findFirst({
     where: { email: session.user.email, isActive: true },

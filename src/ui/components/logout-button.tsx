@@ -9,7 +9,10 @@ export function LogoutButton() {
   const onLogout = async () => {
     setLoading(true);
     try {
-      await authClient.signOut();
+      await Promise.all([
+        fetch("/api/auth/2fa/clear", { method: "POST" }),
+        authClient.signOut(),
+      ]);
       window.location.href = "/sign-in";
     } finally {
       setLoading(false);

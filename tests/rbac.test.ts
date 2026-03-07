@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const state = {
-  session: null as { user?: { email?: string } } | null,
+  session: null as { user?: { id?: string; email?: string } } | null,
   appUser: null as { id?: string; role?: string; saccoId?: string } | null,
 };
 
@@ -48,7 +48,7 @@ describe("RBAC", () => {
   });
 
   it("allows user with required role", async () => {
-    state.session = { user: { email: "admin@example.com" } };
+    state.session = { user: { id: "user-1", email: "admin@example.com" } };
     state.appUser = { role: "SACCO_ADMIN" };
 
     const result = await requireRoles(["SACCO_ADMIN"]);
@@ -56,7 +56,7 @@ describe("RBAC", () => {
   });
 
   it("returns forbidden UnauthorizedError for insufficient role", async () => {
-    state.session = { user: { email: "auditor@example.com" } };
+    state.session = { user: { id: "user-2", email: "auditor@example.com" } };
     state.appUser = { role: "AUDITOR" };
 
     try {
@@ -71,7 +71,7 @@ describe("RBAC", () => {
   });
 
   it("requires explicit SUPER_ADMIN in required role list", async () => {
-    state.session = { user: { email: "super@example.com" } };
+    state.session = { user: { id: "user-3", email: "super@example.com" } };
     state.appUser = { role: "SUPER_ADMIN" };
 
     await expect(requireRoles(["TREASURER"])).rejects.toBeInstanceOf(
@@ -83,7 +83,7 @@ describe("RBAC", () => {
   });
 
   it("returns sacco context for active app user", async () => {
-    state.session = { user: { email: "staff@example.com" } };
+    state.session = { user: { id: "user-4", email: "staff@example.com" } };
     state.appUser = { id: "app-1", role: "TREASURER", saccoId: "sacco-1" };
 
     const context = await requireSaccoContext();

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  TWO_FACTOR_SESSION_COOKIE,
+  getSessionTokenFromRequestCookies,
+} from "@/src/lib/auth-2fa";
 
 const protectedPrefixes = [
   "/dashboard",
@@ -8,7 +12,12 @@ const protectedPrefixes = [
   "/savings",
   "/loans",
   "/reports",
+  "/platform",
 ];
+
+const requireStrictTwoFactor =
+  process.env.NODE_ENV === "production" &&
+  process.env.DEMO_OTP_PREVIEW !== "true";
 
 export function middleware(request: NextRequest) {
   const isProtected = protectedPrefixes.some((prefix) =>
@@ -19,16 +28,41 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionToken = request.cookies.get("better-auth.session_token")?.value;
-  if (sessionToken) {
+  const sessionToken = getSessionTokenFromRequestCookies(request.cookies);
+  if (!requireStrictTwoFactor) {
+    if (sessionToken) {
+      return NextResponse.next();
+    }
+
+    const signInUrl = new URL("/", request.url);
+    signInUrl.searchParams.set(
+      "next",
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    );
+    return NextResponse.redirect(signInUrl);
+  }
+
+  const secondFactorSession = request.cookies.get(TWO_FACTOR_SESSION_COOKIE)?.value;
+  if (sessionToken && secondFactorSession) {
     return NextResponse.next();
   }
 
-  const signInUrl = new URL("/sign-in", request.url);
-  signInUrl.searchParams.set("next", request.nextUrl.pathname);
+  const signInUrl = new URL("/", request.url);
+  signInUrl.searchParams.set(
+    "next",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
   return NextResponse.redirect(signInUrl);
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/users/:path*", "/members/:path*", "/savings/:path*", "/loans/:path*", "/reports/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/users/:path*",
+    "/members/:path*",
+    "/savings/:path*",
+    "/loans/:path*",
+    "/reports/:path*",
+    "/platform/:path*",
+  ],
 };
