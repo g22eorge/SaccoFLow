@@ -415,6 +415,35 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
         </div>
       </section>
 
+      <section className="rounded-lg border bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Language Preference</p>
+        <div className="mt-3 grid gap-2 md:max-w-sm">
+          <label className="space-y-1 text-sm">
+            <span className="block text-muted-foreground">App language mode</span>
+            <select
+              value={settings.experience.languageLevel}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setSettings((previous) => ({
+                  ...previous,
+                  experience: {
+                    ...previous.experience,
+                    languageLevel: event.target.value as "PLAIN" | "PROFESSIONAL",
+                  },
+                }))
+              }
+              className="w-full rounded-lg border border-border bg-background px-3 py-2"
+            >
+              <option value="PLAIN">Plain language</option>
+              <option value="PROFESSIONAL">Professional terms</option>
+            </select>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Changes apply after you click Save settings.
+          </p>
+        </div>
+      </section>
+
       <section className="rounded-lg border bg-card p-6">
         <h2 className="text-lg font-semibold">Policy Version History</h2>
         <p className="mt-1 text-sm text-muted-foreground">

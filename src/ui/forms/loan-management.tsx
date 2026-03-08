@@ -177,7 +177,7 @@ export function LoanManagement({
 
   const canApprove = ["SACCO_ADMIN", "LOAN_OFFICER", "TREASURER", "CHAIRPERSON"].includes(role);
   const canDisburse = ["SACCO_ADMIN", "TREASURER"].includes(role);
-  const canRepay = ["SACCO_ADMIN", "TREASURER"].includes(role);
+  const canRepay = ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"].includes(role);
 
   const selectedLoanProduct =
     loanProducts.find((product) => product.id === loanProductId) ?? activeLoanProducts[0] ?? null;
@@ -988,7 +988,7 @@ export function LoanManagement({
                       ) : null}
                     </>
                   ) : null}
-                  {["ACTIVE", "DISBURSED"].includes(loan.status) && canRepay ? (
+                  {["ACTIVE", "DISBURSED", "DEFAULTED"].includes(loan.status) && canRepay ? (
                     <>
                       <input
                         type="number"
@@ -1117,7 +1117,7 @@ export function LoanManagement({
                               {busyLoanId === loan.id && busyAction === "disburse" ? "Sending..." : "Send money"}
                             </button>
                           ) : null}
-                          {["ACTIVE", "DISBURSED"].includes(loan.status) && canRepay ? (
+                          {["ACTIVE", "DISBURSED", "DEFAULTED"].includes(loan.status) && canRepay ? (
                             <>
                               <input
                                 type="number"
