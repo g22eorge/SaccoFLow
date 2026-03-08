@@ -63,7 +63,14 @@ describe("RBAC", () => {
 
   it("allows user with required role", async () => {
     state.session = { user: { id: "user-1", email: "admin@example.com" } };
-    state.appUser = { role: "SACCO_ADMIN" };
+    state.appUser = { id: "app-admin", role: "SACCO_ADMIN", saccoId: "sacco-1" };
+    state.tenantAccesses = [
+      {
+        saccoId: "sacco-1",
+        role: "SACCO_ADMIN",
+        sacco: { id: "sacco-1", code: "ORG1", name: "Org 1" },
+      },
+    ];
 
     const result = await requireRoles(["SACCO_ADMIN"]);
     expect(result.role).toBe("SACCO_ADMIN");
@@ -71,7 +78,14 @@ describe("RBAC", () => {
 
   it("returns forbidden UnauthorizedError for insufficient role", async () => {
     state.session = { user: { id: "user-2", email: "auditor@example.com" } };
-    state.appUser = { role: "AUDITOR" };
+    state.appUser = { id: "app-auditor", role: "AUDITOR", saccoId: "sacco-1" };
+    state.tenantAccesses = [
+      {
+        saccoId: "sacco-1",
+        role: "AUDITOR",
+        sacco: { id: "sacco-1", code: "ORG1", name: "Org 1" },
+      },
+    ];
 
     try {
       await requireRoles(["SACCO_ADMIN"]);
@@ -86,7 +100,14 @@ describe("RBAC", () => {
 
   it("requires explicit SUPER_ADMIN in required role list", async () => {
     state.session = { user: { id: "user-3", email: "super@example.com" } };
-    state.appUser = { role: "SUPER_ADMIN" };
+    state.appUser = { id: "app-super", role: "SUPER_ADMIN", saccoId: "sacco-1" };
+    state.tenantAccesses = [
+      {
+        saccoId: "sacco-1",
+        role: "SUPER_ADMIN",
+        sacco: { id: "sacco-1", code: "ORG1", name: "Org 1" },
+      },
+    ];
 
     await expect(requireRoles(["TREASURER"])).rejects.toBeInstanceOf(
       UnauthorizedError,
@@ -99,9 +120,16 @@ describe("RBAC", () => {
   it("returns sacco context for active app user", async () => {
     state.session = { user: { id: "user-4", email: "staff@example.com" } };
     state.appUser = { id: "app-1", role: "TREASURER", saccoId: "sacco-1" };
+    state.tenantAccesses = [
+      {
+        saccoId: "sacco-1",
+        role: "TREASURER",
+        sacco: { id: "sacco-1", code: "ORG1", name: "Org 1" },
+      },
+    ];
 
     const context = await requireSaccoContext();
-    expect(context).toEqual({
+    expect(context).toMatchObject({
       id: "app-1",
       role: "TREASURER",
       saccoId: "sacco-1",

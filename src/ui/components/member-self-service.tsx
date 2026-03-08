@@ -466,9 +466,9 @@ export function MemberSelfService({
       </section>
 
       <section className="rounded-lg border bg-card p-6 xl:col-span-2">
-        <h2 className="text-lg font-semibold">Loan Schedules Awaiting Your Approval</h2>
+        <h2 className="text-lg font-semibold">Confirm Your Loan Plan</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review and approve repayment schedule before funds can be disbursed.
+          Review and confirm your payment plan before money is sent.
         </p>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
           {loansPendingScheduleApproval.map((loan) => (
@@ -476,7 +476,7 @@ export function MemberSelfService({
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">Loan {loan.id.slice(0, 8)}</p>
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                  Approval Needed
+                  Confirmation Needed
                 </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -498,16 +498,16 @@ export function MemberSelfService({
                 onClick={() => approveSchedule(loan.id)}
                 className="mt-3 rounded-lg border border-border px-3 py-2 text-sm"
               >
-                {approvingScheduleLoanId === loan.id ? "Approving..." : "Approve Schedule"}
+                {approvingScheduleLoanId === loan.id ? "Confirming..." : "Confirm Plan"}
               </button>
             </article>
           ))}
           {loansPendingScheduleApproval.length === 0 ? (
             <article className="rounded-md border border-dashed bg-background px-4 py-4 xl:col-span-2">
               <p className="text-sm font-medium">No loan schedules need approval right now.</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Approved loans will appear here for your confirmation before disbursement.
-              </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Approved loans will appear here for your confirmation before money is sent.
+                </p>
             </article>
           ) : null}
         </div>

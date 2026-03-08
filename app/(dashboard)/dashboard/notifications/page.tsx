@@ -16,7 +16,7 @@ export default function NotificationsPage() {
                   </p>
                   <h1 className="mt-2 text-2xl font-bold">Notifications</h1>
                   <p className="mt-2 text-muted-foreground">
-                    Monitor operational alerts, audit events, and risk signals.
+                    Monitor alerts, activity history, and important warnings.
                   </p>
                 </div>
 

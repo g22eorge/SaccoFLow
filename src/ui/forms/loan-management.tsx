@@ -53,13 +53,13 @@ type LoanRow = {
 
 const trustReasonLabel = (reason: string) => {
   if (reason === "SAVINGS_ACTIVITY_TRUST_PENDING") {
-    return "Savings activity pending";
+    return "Savings history still short";
   }
   if (reason === "LENDING_ACTIVITY_TRUST_PENDING") {
-    return "Lending history pending";
+    return "Loan history still short";
   }
   if (reason === "LIMITED_REPAYMENT_HISTORY") {
-    return "Repayment history pending";
+    return "Payment history still short";
   }
   return reason.replaceAll("_", " ").toLowerCase();
 };
@@ -102,13 +102,13 @@ const processFlowLabel = (loan: LoanRow) => {
     return "Ready for disbursement";
   }
   if (loan.status === "DISBURSED") {
-    return "Disbursed, awaiting repayment cycle";
+    return "Money sent, waiting for payments";
   }
   if (loan.status === "ACTIVE") {
     return "Repayment in progress";
   }
   if (loan.status === "DEFAULTED") {
-    return "Defaulted, move to collections";
+    return "Late for long, needs follow-up";
   }
   if (loan.status === "CLEARED") {
     return "Cleared and closed";
@@ -449,7 +449,7 @@ export function LoanManagement({
         }
       } else if (action === "disburse") {
         setOptimisticStatusByLoanId((prev) => ({ ...prev, [loanId]: "DISBURSED" }));
-        setMessage("Disbursement posted. Refreshing balances...");
+        setMessage("Money sent successfully. Refreshing balances...");
       } else {
         setMessage(`Loan ${action} action successful.`);
       }
@@ -795,7 +795,7 @@ export function LoanManagement({
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
               <option value="dueSoon">Sort: Due soon</option>
-              <option value="outstanding">Sort: Outstanding</option>
+              <option value="outstanding">Sort: Amount left</option>
               <option value="name">Sort: Member name</option>
             </select>
           </div>
@@ -871,7 +871,7 @@ export function LoanManagement({
 
                   return trustPendingReasons.length > 0 ? (
                     <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800">Trust Pending</p>
+                      <p className="text-xs font-semibold text-amber-800">More History Needed</p>
                       <p className="mt-1 text-xs text-amber-700">
                         {trustPendingReasons.map((reason) => trustReasonLabel(reason)).join(" | ")}
                       </p>
@@ -886,7 +886,7 @@ export function LoanManagement({
                     </span>
                     {loan.scheduleAutoApproved ? (
                       <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                        GREEN AUTO
+                          AUTO-APPROVED
                       </span>
                     ) : null}
                   </div>
@@ -903,7 +903,7 @@ export function LoanManagement({
                     </span>
                   </p>
                   <p>
-                    Outstanding P/I/F:{" "}
+                    Amount Left (Principal/Interest/Penalty):{" "}
                     <span className="font-semibold text-foreground">
                       {formatMoney(loan.outstandingPrincipal)} /{" "}
                       {formatMoney(loan.outstandingInterest)} /{" "}
@@ -930,7 +930,7 @@ export function LoanManagement({
                   ) : null}
                   {loan.status === "PENDING" && loan.approvalSlaDueAt ? (
                     <p>
-                      Approval SLA:{" "}
+                      Approval due by:{" "}
                       <span className="font-semibold text-foreground">
                         {formatUtcDate(loan.approvalSlaDueAt)}
                       </span>
@@ -947,7 +947,7 @@ export function LoanManagement({
                   ) : null}
                   {loan.scheduleApprovalReasons.length > 0 ? (
                     <p className="line-clamp-2">
-                      Reasons:{" "}
+                      Notes:{" "}
                       <span className="font-semibold text-foreground">
                         {loan.scheduleApprovalReasons.join(", ")}
                       </span>
@@ -969,7 +969,7 @@ export function LoanManagement({
                       {busyLoanId === loan.id && busyAction === "approve"
                         ? "Approving..."
                         : loan.approvalCurrentCount > 0
-                          ? "Approve next step"
+                          ? "Approve next"
                           : "Start approval"}
                     </button>
                   ) : null}
@@ -981,10 +981,10 @@ export function LoanManagement({
                         onClick={() => callLoanAction(loan.id, "disburse")}
                         className="rounded-lg border border-border px-2 py-1"
                       >
-                        {busyLoanId === loan.id && busyAction === "disburse" ? "Disbursing..." : "Disburse"}
+                        {busyLoanId === loan.id && busyAction === "disburse" ? "Sending..." : "Send money"}
                       </button>
                       {!loan.scheduleApprovedByMember ? (
-                        <p className="text-xs text-amber-700">Waiting member approval (authorized staff can override on disburse)</p>
+                        <p className="text-xs text-amber-700">Waiting member approval (authorized staff can still send if policy allows)</p>
                       ) : null}
                     </>
                   ) : null}
@@ -1002,7 +1002,7 @@ export function LoanManagement({
                           }))
                         }
                         className="w-28 rounded border border-border bg-background px-2 py-1"
-                        placeholder="Repay"
+                        placeholder="Payment"
                       />
                       <button
                         type="button"
@@ -1010,7 +1010,7 @@ export function LoanManagement({
                         onClick={() => handleRepay(loan)}
                         className="rounded-lg border border-border px-2 py-1"
                       >
-                        {busyLoanId === loan.id && busyAction === "repay" ? "Posting..." : "Repay"}
+                        {busyLoanId === loan.id && busyAction === "repay" ? "Saving..." : "Record payment"}
                       </button>
                     </>
                   ) : null}
@@ -1027,7 +1027,7 @@ export function LoanManagement({
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Product</th>
                   <th className="px-3 py-2">Principal</th>
-                  <th className="px-3 py-2">Outstanding</th>
+                  <th className="px-3 py-2">Amount Left</th>
                   <th className="px-3 py-2">Due</th>
                   <th className="min-w-[22ch] px-3 py-2">Process Flow</th>
                   <th className="px-3 py-2">Actions</th>
@@ -1060,7 +1060,7 @@ export function LoanManagement({
                           </span>
                           {loan.scheduleAutoApproved ? (
                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                              GREEN AUTO
+                              AUTO-APPROVED
                             </span>
                           ) : null}
                         </div>
@@ -1114,7 +1114,7 @@ export function LoanManagement({
                               onClick={() => callLoanAction(loan.id, "disburse")}
                               className="rounded-lg border border-border px-2 py-1"
                             >
-                              {busyLoanId === loan.id && busyAction === "disburse" ? "Disbursing..." : "Disburse"}
+                              {busyLoanId === loan.id && busyAction === "disburse" ? "Sending..." : "Send money"}
                             </button>
                           ) : null}
                           {["ACTIVE", "DISBURSED"].includes(loan.status) && canRepay ? (
@@ -1131,7 +1131,7 @@ export function LoanManagement({
                                   }))
                                 }
                                 className="w-24 rounded border border-border bg-background px-2 py-1"
-                                placeholder="Repay"
+                                placeholder="Payment"
                               />
                               <button
                                 type="button"

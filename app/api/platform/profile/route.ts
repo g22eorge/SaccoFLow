@@ -45,7 +45,6 @@ export const PATCH = withApiHandler(async (request: Request) => {
       fullName: true,
       role: true,
       authUserId: true,
-      saccoId: true,
     },
   });
 
@@ -65,12 +64,10 @@ export const PATCH = withApiHandler(async (request: Request) => {
     });
   }
 
-  const auditSaccoId =
-    current.saccoId ??
-    (await prisma.sacco.findFirst({
-      select: { id: true },
-      orderBy: { createdAt: "asc" },
-    }))?.id;
+  const auditSaccoId = (await prisma.sacco.findFirst({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  }))?.id;
 
   if (!auditSaccoId) {
     throw new Error("No SACCO context available for audit logging");

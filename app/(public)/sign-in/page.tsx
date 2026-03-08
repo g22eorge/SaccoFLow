@@ -1,4 +1,5 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { SignInPanel } from "@/src/ui/components/sign-in-panel";
 
 export default function SignInPage({
   searchParams,
@@ -9,11 +10,24 @@ export default function SignInPage({
   const nextUrl =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
       ? rawNext
-      : undefined;
+      : "/dashboard";
 
-  if (nextUrl) {
-    redirect(`/?next=${encodeURIComponent(nextUrl)}`);
-  }
-
-  redirect("/");
+  return (
+    <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-8 px-6 py-10 lg:grid-cols-2 lg:items-center">
+      <section className="space-y-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Welcome Back</p>
+        <h1 className="text-4xl font-bold leading-tight">Sign in to your SACCO workspace</h1>
+        <p className="max-w-xl text-sm text-muted-foreground">
+          Access your organization dashboard, member records, and workflow actions securely.
+        </p>
+        <div className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+          New organization?{" "}
+          <Link href="/start" className="font-medium text-[#cc5500]">
+            Create a SACCO account
+          </Link>
+        </div>
+      </section>
+      <SignInPanel nextUrl={nextUrl} />
+    </main>
+  );
 }

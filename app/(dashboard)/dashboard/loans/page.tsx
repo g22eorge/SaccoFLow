@@ -608,9 +608,9 @@ export default async function LoansPage({
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <h2 className="text-lg font-semibold">Loan Health Checks</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Target-vs-actual risk checks for faster credit decisions.
+                      Simple checks to show loan risk and what needs attention.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">

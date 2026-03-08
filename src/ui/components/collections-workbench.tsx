@@ -72,7 +72,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
       if (!response.ok || !payload.success) {
         throw new Error(payload.error?.message ?? "Failed to record collection action");
       }
-      setMessage("Collection action recorded.");
+      setMessage("Follow-up action saved.");
       setOutcome("");
       setNote("");
       setNextFollowUpAt("");
@@ -89,9 +89,9 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
       <section className="rounded-lg border bg-card p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Collections Queue</h2>
+            <h2 className="text-lg font-semibold">Late Payment Follow-up</h2>
             <p className="text-sm text-muted-foreground">
-              Prioritize overdue and near-risk cases with daily action tracking.
+              Track overdue and at-risk cases with simple daily follow-up notes.
             </p>
           </div>
           <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
@@ -106,7 +106,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
               onChange={(event) => setSeverity(event.target.value as "ALL" | "High" | "Medium" | "Watch")}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
-              <option value="ALL">All severities</option>
+              <option value="ALL">All priority levels</option>
               <option value="High">High</option>
               <option value="Medium">Medium</option>
               <option value="Watch">Watch</option>

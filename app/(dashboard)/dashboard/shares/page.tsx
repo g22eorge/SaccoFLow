@@ -267,9 +267,9 @@ export default async function SharesPage({
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <h2 className="text-lg font-semibold">Share Health Checks</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Decision markers for equity health and ownership quality.
+                      Simple checks for ownership balance and share activity.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
@@ -293,7 +293,7 @@ export default async function SharesPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Top Share Holders</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Concentration view across highest equity contributors.
+                      Shows members with the largest share balances.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[560px] text-sm">
@@ -327,7 +327,7 @@ export default async function SharesPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Scenario Outlook</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Quick stress checks for capital planning conversations.
+                      Quick what-if checks for share-capital planning.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
@@ -350,7 +350,7 @@ export default async function SharesPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Priority Actions</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Current recommendations based on share-capital signals.
+                      Current recommendations based on share activity.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       {actionQueue.length > 0 ? (

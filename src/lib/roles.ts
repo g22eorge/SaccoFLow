@@ -57,7 +57,7 @@ export const ROLE_LEVELS: Record<SaccoRole, number> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<SaccoRole, string> = {
-  SACCO_ADMIN: "Operational executive for SACCO-wide administration.",
+  SACCO_ADMIN: "Main administrator for SACCO-wide operations.",
   CHAIRPERSON: "Board lead for governance, approvals, and policy direction.",
   BOARD_MEMBER: "Board oversight and voting without day-to-day execution.",
   TREASURER: "Finance operations lead for liquidity and transactions.",

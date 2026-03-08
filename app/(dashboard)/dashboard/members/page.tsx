@@ -265,9 +265,9 @@ export default async function MembersPage({
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <h2 className="text-lg font-semibold">Member Health Checks</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Target-vs-actual quality checks for membership health.
+                      Simple checks to show how member activity is performing.
                     </p>
                     <div className="mt-4 space-y-3">
                       {decisionSignals.map((signal) => (
@@ -345,7 +345,7 @@ export default async function MembersPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Priority Actions</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Recommended interventions from member performance signals.
+                      Recommended next steps from current member activity.
                     </p>
                     <div className="mt-4 space-y-3">
                       {actionQueue.length > 0 ? (

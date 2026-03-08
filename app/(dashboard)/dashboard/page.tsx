@@ -318,7 +318,7 @@ export default async function Page() {
                   </section>
 
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Operational Pressure</h2>
+                    <h2 className="text-lg font-semibold">What Needs Attention Now</h2>
                     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Approvals Queue</p>
@@ -368,9 +368,9 @@ export default async function Page() {
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Executive Signals</h2>
+                    <h2 className="text-lg font-semibold">Decision Helpers</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Target-vs-actual scorecards to speed board-level decisions.
+                      Simple checks showing where results are on track or need action.
                     </p>
                     <div className="mt-4 space-y-3">
                       {decisionSignals.map((signal) => (
@@ -396,7 +396,7 @@ export default async function Page() {
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Scenario Outlook</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Quick stress checks on lending headroom under adverse assumptions.
+                      Quick what-if checks to see how much more lending room you keep.
                     </p>
                     <div className="mt-4 space-y-3">
                       {scenarioCards.map((scenario) => (
@@ -418,31 +418,31 @@ export default async function Page() {
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
-                  <h2 className="text-lg font-semibold">Executive KPI Pack</h2>
+                  <h2 className="text-lg font-semibold">Key Health Numbers</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Board-level risk, concentration, liquidity, and recovery indicators.
+                    Easy-to-read risk, cash safety, and recovery indicators.
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">PAR 30</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Late Loans (30+ days)</p>
                       <p className="mt-1 text-xl font-semibold">{par30Percent.toFixed(1)}%</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">PAR 90</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Late Loans (90+ days)</p>
                       <p className="mt-1 text-xl font-semibold">{par90Percent.toFixed(1)}%</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Top 5 Concentration</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Top 5 Loan Share</p>
                       <p className="mt-1 text-xl font-semibold">{concentrationTop5Percent.toFixed(1)}%</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Liquidity Coverage</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Safety Cover</p>
                       <p className="mt-1 text-xl font-semibold">
                         {liquidityCoveragePercent >= 999 ? "n/a" : `${liquidityCoveragePercent.toFixed(1)}%`}
                       </p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Recovery Rate 30D</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Recovered in 30 Days</p>
                       <p className="mt-1 text-xl font-semibold">{recoveryRate30d.toFixed(1)}%</p>
                     </article>
                   </div>
@@ -480,7 +480,7 @@ export default async function Page() {
                 <section className="rounded-lg border bg-card p-6">
                   <h2 className="text-lg font-semibold">Priority Actions</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Suggested next moves based on today&apos;s pressure signals.
+                    Suggested next steps based on today&apos;s numbers.
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
                     {actionQueue.length > 0 ? (
@@ -514,7 +514,7 @@ export default async function Page() {
 
                 <section className="rounded-lg border bg-card p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold">30 Day Flow Intelligence</h2>
+                    <h2 className="text-lg font-semibold">30 Day Money Flow</h2>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${signalTone(flowStatus)}`}
                     >
@@ -522,7 +522,7 @@ export default async function Page() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Lending cash cycle quality with collection efficiency against target.
+                    Shows money sent out in loans, money paid back, and collection performance.
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-4">
                     <article className="rounded-md border bg-background px-4 py-3">

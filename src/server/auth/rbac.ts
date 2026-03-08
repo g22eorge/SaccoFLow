@@ -140,19 +140,19 @@ const requireSecondFactor = async (sessionUserId: string) => {
 };
 
 const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUserContext> => {
-  const appUser = await prisma.appUser.findFirst({
+  const baseAppUser = await prisma.appUser.findFirst({
     where: {
       authUserId: session.user.id,
       isActive: true,
     },
-    select: { id: true, role: true, saccoId: true },
+    select: { id: true, role: true },
   });
 
-  if (!appUser) {
+  if (!baseAppUser) {
     throw new UnauthorizedError("Missing SACCO profile", 403);
   }
 
-  if (String(appUser.role) === "PLATFORM_SUPER_ADMIN") {
+  if (String(baseAppUser.role) === "PLATFORM_SUPER_ADMIN") {
     const assumedTenant = await getAssumedTenant();
     if (!assumedTenant) {
       throw new UnauthorizedError(
@@ -171,7 +171,7 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
     }
 
     return {
-      id: appUser.id,
+      id: baseAppUser.id,
       role: "SUPER_ADMIN",
       saccoId: tenant.id,
       assumedTenant: {
@@ -181,6 +181,15 @@ const resolveAppContext = async (session: NonNullable<Session>): Promise<AppUser
         startedAtIso: assumedTenant.startedAtIso,
       },
     };
+  }
+
+  const appUser = await prisma.appUser.findFirst({
+    where: { id: baseAppUser.id },
+    select: { id: true, role: true, saccoId: true },
+  });
+
+  if (!appUser?.saccoId) {
+    throw new UnauthorizedError("No active SACCO access mapped to this account", 403);
   }
 
   const tenantAccesses = await prisma.appUserTenantAccess.findMany({
@@ -289,7 +298,7 @@ export const requirePlatformSuperAdmin = async () => {
 
   const appUser = await prisma.appUser.findFirst({
     where: { authUserId: session.user.id, isActive: true },
-    select: { id: true, role: true, saccoId: true },
+    select: { id: true, role: true },
   });
 
   if (!appUser || String(appUser.role) !== "PLATFORM_SUPER_ADMIN") {
