@@ -7,10 +7,86 @@ import {
 } from "@/src/server/validators/external-capital";
 import { AuditService } from "@/src/server/services/audit.service";
 import { DashboardService } from "@/src/server/services/dashboard.service";
+import { SettingsService } from "@/src/server/services/settings.service";
+import { SharesService } from "@/src/server/services/shares.service";
 
 const LARGE_INFLOW_THRESHOLD = new Prisma.Decimal(5_000_000);
+const toDecimal = (value: Prisma.Decimal | null | undefined) =>
+  value ?? new Prisma.Decimal(0);
+
+const isInvestmentAllocation = (allocationBucket?: string | null) =>
+  Boolean(allocationBucket && /(INVEST|BOND)/i.test(allocationBucket));
 
 export const ExternalCapitalService = {
+  async guardrailsSnapshot(saccoId: string, adjustment = new Prisma.Decimal(0)) {
+    const [settings, savingsDeposits, savingsWithdrawals, savingsAdjustments, totalShareCapital, postedExternalAgg, postedInvestmentAgg] =
+      await Promise.all([
+        SettingsService.get(saccoId),
+        prisma.savingsTransaction.aggregate({
+          where: { saccoId, type: "DEPOSIT" },
+          _sum: { amount: true },
+        }),
+        prisma.savingsTransaction.aggregate({
+          where: { saccoId, type: "WITHDRAWAL" },
+          _sum: { amount: true },
+        }),
+        prisma.savingsTransaction.aggregate({
+          where: { saccoId, type: "ADJUSTMENT" },
+          _sum: { amount: true },
+        }),
+        SharesService.getTotalShareCapital(saccoId),
+        prisma.externalCapitalTransaction.aggregate({
+          where: { saccoId, status: "POSTED" },
+          _sum: { baseAmount: true },
+        }),
+        prisma.externalCapitalTransaction.aggregate({
+          where: {
+            saccoId,
+            status: "POSTED",
+            OR: [
+              { allocationBucket: { contains: "INVEST" } },
+              { allocationBucket: { contains: "BOND" } },
+            ],
+          },
+          _sum: { baseAmount: true },
+        }),
+      ]);
+
+    const totalSavingsBalance = toDecimal(savingsDeposits._sum.amount)
+      .minus(toDecimal(savingsWithdrawals._sum.amount))
+      .plus(toDecimal(savingsAdjustments._sum.amount));
+    const reserveAmount = totalSavingsBalance
+      .mul(settings.savings.liquidityReserveRatioPercent)
+      .div(100);
+    const totalCapitalBase = totalSavingsBalance
+      .plus(toDecimal(totalShareCapital))
+      .plus(toDecimal(postedExternalAgg._sum.baseAmount));
+
+    const currentInvestmentAllocated = toDecimal(postedInvestmentAgg._sum.baseAmount);
+    const projectedInvestmentAllocated = currentInvestmentAllocated.plus(adjustment);
+    const investmentCapAmount = totalCapitalBase
+      .mul(settings.savings.maxInvestmentAllocationPercent)
+      .div(100);
+
+    const availableLiquidityAfterInvestments = totalSavingsBalance
+      .plus(toDecimal(postedExternalAgg._sum.baseAmount))
+      .minus(projectedInvestmentAllocated);
+    const reserveCoveragePercent = reserveAmount.greaterThan(0)
+      ? Number(availableLiquidityAfterInvestments.div(reserveAmount).mul(100).toFixed(2))
+      : 999;
+
+    return {
+      settings,
+      reserveAmount,
+      totalCapitalBase,
+      currentInvestmentAllocated,
+      projectedInvestmentAllocated,
+      investmentCapAmount,
+      availableLiquidityAfterInvestments,
+      reserveCoveragePercent,
+    };
+  },
+
   async list(input: {
     saccoId: string;
     page: number;
@@ -150,6 +226,36 @@ export const ExternalCapitalService = {
     });
     if (!existing) {
       throw new Error("External capital transaction not found");
+    }
+
+    if (
+      parsed.status === "POSTED" &&
+      existing.status !== "POSTED" &&
+      isInvestmentAllocation(existing.allocationBucket)
+    ) {
+      const guardrails = await this.guardrailsSnapshot(
+        input.saccoId,
+        toDecimal(existing.baseAmount),
+      );
+
+      if (
+        guardrails.projectedInvestmentAllocated.greaterThan(
+          guardrails.investmentCapAmount,
+        )
+      ) {
+        throw new Error(
+          `Investment posting blocked: projected investment allocation exceeds cap (${guardrails.settings.savings.maxInvestmentAllocationPercent}%).`,
+        );
+      }
+
+      if (
+        guardrails.reserveCoveragePercent <
+        guardrails.settings.savings.minimumReserveCoveragePercent
+      ) {
+        throw new Error(
+          `Investment posting blocked: reserve coverage would fall to ${guardrails.reserveCoveragePercent.toFixed(2)}%, below minimum ${guardrails.settings.savings.minimumReserveCoveragePercent}%.`,
+        );
+      }
     }
 
     const updated = await prisma.externalCapitalTransaction.update({

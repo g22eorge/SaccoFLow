@@ -41,8 +41,11 @@ const addMonths = (date: Date, months: number) => {
 const decimal = (value: Prisma.Decimal | number | null | undefined) =>
   new Prisma.Decimal(value ?? 0);
 
-const money = (value: Prisma.Decimal | number | null | undefined) =>
-  decimal(value).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+const wholeMoney = (value: Prisma.Decimal | number | null | undefined) =>
+  decimal(value).toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+
+const nonNegativeWholeMoney = (value: Prisma.Decimal) =>
+  value.lessThan(0) ? new Prisma.Decimal(0) : wholeMoney(value);
 
 const minDecimal = (a: Prisma.Decimal, b: Prisma.Decimal) =>
   a.lessThan(b) ? a : b;
@@ -873,7 +876,11 @@ export const LoansService = {
 
   async repay(id: string, payload: unknown, actorId?: string) {
     const parsed = loanRepaymentSchema.parse(payload);
-    const amount = money(parsed.amount);
+    let amount = wholeMoney(parsed.amount);
+    const settlementTolerance = new Prisma.Decimal("0.5");
+    if (amount.lessThanOrEqualTo(0)) {
+      throw new Error("Repayment amount must be at least 1");
+    }
     const settings = await SettingsService.get(parsed.saccoId);
     const loan = await prisma.loan.findFirstOrThrow({
       where: { id, saccoId: parsed.saccoId },
@@ -881,10 +888,6 @@ export const LoansService = {
 
     if (!["ACTIVE", "DISBURSED", "DEFAULTED"].includes(loan.status)) {
       throw new Error("Loan must be disbursed, active, or defaulted before repayment");
-    }
-
-    if (loan.memberId !== parsed.memberId) {
-      throw new Error("Repayment member does not match loan member");
     }
 
     const now = new Date();
@@ -918,35 +921,48 @@ export const LoansService = {
       const currentPenalty = decimal(loan.outstandingPenalty);
       const allowed = cap.minus(currentPenalty);
       if (allowed.greaterThan(0)) {
-        penaltyIncrement = minDecimal(
-          lateFeeBase.plus(penaltyRatePart),
-          allowed,
+        penaltyIncrement = wholeMoney(
+          minDecimal(lateFeeBase.plus(penaltyRatePart), allowed),
         );
       }
     }
 
-    const penaltyDue = money(decimal(loan.outstandingPenalty).plus(penaltyIncrement));
-    const interestDue = money(loan.outstandingInterest);
-    const principalDue = money(loan.outstandingPrincipal);
-    const totalDue = penaltyDue.plus(interestDue).plus(principalDue);
+    const basePenaltyDue = wholeMoney(loan.outstandingPenalty);
+    const baseInterestDue = wholeMoney(loan.outstandingInterest);
+    const basePrincipalDue = wholeMoney(loan.outstandingPrincipal);
+    const baseTotalDue = basePenaltyDue.plus(baseInterestDue).plus(basePrincipalDue);
+
+    if (
+      penaltyIncrement.greaterThan(0) &&
+      amount.plus(settlementTolerance).greaterThanOrEqualTo(baseTotalDue)
+    ) {
+      penaltyIncrement = new Prisma.Decimal(0);
+    }
+
+    const penaltyDue = wholeMoney(basePenaltyDue.plus(penaltyIncrement));
+    const interestDue = baseInterestDue;
+    const principalDue = basePrincipalDue;
+    const totalDue = wholeMoney(penaltyDue.plus(interestDue).plus(principalDue));
 
     if (totalDue.equals(0)) {
       throw new Error("Loan has no outstanding balance");
     }
-    if (amount.greaterThan(money(totalDue))) {
-      if (
+    if (amount.greaterThan(totalDue)) {
+      if (amount.lessThanOrEqualTo(totalDue.plus(settlementTolerance))) {
+        amount = wholeMoney(totalDue);
+      } else if (
         settings.repaymentAllocation.overpaymentHandling === "HOLD_AS_CREDIT"
       ) {
         throw new Error(
           "Repayment exceeds due amount. Record excess as member savings credit.",
         );
-      }
-      if (settings.repaymentAllocation.overpaymentHandling === "REFUND") {
+      } else if (settings.repaymentAllocation.overpaymentHandling === "REFUND") {
         throw new Error(
           "Repayment exceeds due amount. Refund excess before recording repayment.",
         );
+      } else {
+        throw new Error("Repayment exceeds due amount");
       }
-      throw new Error("Repayment exceeds due amount");
     }
 
     const order = uniqueAllocationOrder([
@@ -973,13 +989,13 @@ export const LoansService = {
       remaining = remaining.minus(pay);
     }
 
-    if (remaining.greaterThan(new Prisma.Decimal("0.009"))) {
+    if (remaining.greaterThan(settlementTolerance)) {
       throw new Error("Repayment exceeds due amount");
     }
 
-    const nextOutstandingPenalty = money(buckets.PENALTY);
-    const nextOutstandingInterest = money(buckets.INTEREST);
-    const nextOutstandingPrincipal = money(buckets.PRINCIPAL);
+    const nextOutstandingPenalty = nonNegativeWholeMoney(buckets.PENALTY);
+    const nextOutstandingInterest = nonNegativeWholeMoney(buckets.INTEREST);
+    const nextOutstandingPrincipal = nonNegativeWholeMoney(buckets.PRINCIPAL);
     const daysPastDue = Math.max(
       0,
       Math.ceil((now.getTime() - dueAt.getTime()) / DAY_MS),
@@ -987,7 +1003,10 @@ export const LoansService = {
     const remainingDue = nextOutstandingPrincipal
       .plus(nextOutstandingInterest)
       .plus(nextOutstandingPenalty);
-    const fullyCleared = remainingDue.lessThanOrEqualTo(new Prisma.Decimal("0.009"));
+    const fullyCleared = remainingDue.lessThanOrEqualTo(settlementTolerance);
+    const settledPrincipal = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingPrincipal;
+    const settledInterest = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingInterest;
+    const settledPenalty = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingPenalty;
     const nextStatus = fullyCleared
       ? "CLEARED"
       : daysPastDue >= settings.delinquency.defaultAfterDaysPastDue
@@ -999,7 +1018,7 @@ export const LoansService = {
         data: {
           saccoId: parsed.saccoId,
           loanId: id,
-          memberId: parsed.memberId,
+          memberId: loan.memberId,
           amount,
           note: parsed.note,
         },
@@ -1008,9 +1027,9 @@ export const LoansService = {
       await tx.loan.update({
         where: { id: loan.id },
         data: {
-          outstandingPrincipal: nextOutstandingPrincipal,
-          outstandingInterest: nextOutstandingInterest,
-          outstandingPenalty: nextOutstandingPenalty,
+          outstandingPrincipal: settledPrincipal,
+          outstandingInterest: settledInterest,
+          outstandingPenalty: settledPenalty,
           status: nextStatus,
         },
       });
@@ -1018,7 +1037,7 @@ export const LoansService = {
       await tx.ledgerEntry.create({
         data: {
           saccoId: parsed.saccoId,
-          memberId: parsed.memberId,
+          memberId: loan.memberId,
           eventType: "LOAN_REPAYMENT",
           amount,
           reference: repayment.id,
@@ -1045,9 +1064,9 @@ export const LoansService = {
             allocatedInterest: allocations.INTEREST.toString(),
             allocatedPrincipal: allocations.PRINCIPAL.toString(),
             penaltyIncrement: penaltyIncrement.toString(),
-            outstandingPrincipal: nextOutstandingPrincipal.toString(),
-            outstandingInterest: nextOutstandingInterest.toString(),
-            outstandingPenalty: nextOutstandingPenalty.toString(),
+            outstandingPrincipal: settledPrincipal.toString(),
+            outstandingInterest: settledInterest.toString(),
+            outstandingPenalty: settledPenalty.toString(),
             status: nextStatus,
           }),
         },

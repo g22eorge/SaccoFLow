@@ -43,6 +43,12 @@ type DashboardMonitorsResult = {
     concentrationTop5Percent: number;
     liquidityCoveragePercent: number;
     recoveryRate30d: number;
+    investmentAllocated: string;
+    investmentCapAmount: string;
+    investmentAllocationPercent: number;
+    maxInvestmentAllocationPercent: number;
+    reserveCoveragePercent: number;
+    minimumReserveCoveragePercent: number;
   };
   recentActivity: Array<{
     id: string;
@@ -112,6 +118,7 @@ export const DashboardService = {
       memberExposureBuckets,
       externalCapital,
       postedExternalCapitalAgg,
+      postedInvestmentAgg,
     ] = await Promise.all([
       SettingsService.get(saccoId),
       prisma.member.count({ where: { saccoId } }),
@@ -264,6 +271,17 @@ export const DashboardService = {
         where: { saccoId, status: "POSTED" },
         _sum: { baseAmount: true },
       }),
+      prisma.externalCapitalTransaction.aggregate({
+        where: {
+          saccoId,
+          status: "POSTED",
+          OR: [
+            { allocationBucket: { contains: "INVEST" } },
+            { allocationBucket: { contains: "BOND" } },
+          ],
+        },
+        _sum: { baseAmount: true },
+      }),
     ]);
 
     const pendingMemberRequests = memberRequestLogs.reduce((count, log) => {
@@ -356,6 +374,27 @@ export const DashboardService = {
     const deployableExternalCapital = toDecimal(
       postedExternalCapitalAgg._sum.baseAmount,
     );
+    const investmentAllocated = toDecimal(postedInvestmentAgg._sum.baseAmount);
+    const totalCapitalBase = totalSavingsBalance
+      .plus(toDecimal(totalShareCapital))
+      .plus(deployableExternalCapital);
+    const investmentCapAmount = totalCapitalBase
+      .mul(settings.savings.maxInvestmentAllocationPercent)
+      .div(100);
+    const investmentAllocationPercent = totalCapitalBase.greaterThan(0)
+      ? Number(investmentAllocated.div(totalCapitalBase).mul(100).toFixed(2))
+      : 0;
+    const reserveCoverageLiquidity = totalSavingsBalance
+      .plus(deployableExternalCapital)
+      .minus(investmentAllocated);
+    const reserveCoveragePercent = liquidityReserveAmount.greaterThan(0)
+      ? Number(
+          reserveCoverageLiquidity
+            .div(liquidityReserveAmount)
+            .mul(100)
+            .toFixed(2),
+        )
+      : 999;
     const liquidityLendableFundsWithExternalCapital = liquidityLendableFunds.plus(
       deployableExternalCapital,
     );
@@ -428,6 +467,14 @@ export const DashboardService = {
         concentrationTop5Percent,
         liquidityCoveragePercent,
         recoveryRate30d,
+        investmentAllocated: formatMoney(investmentAllocated.toFixed(2)),
+        investmentCapAmount: formatMoney(investmentCapAmount.toFixed(2)),
+        investmentAllocationPercent,
+        maxInvestmentAllocationPercent:
+          settings.savings.maxInvestmentAllocationPercent,
+        reserveCoveragePercent,
+        minimumReserveCoveragePercent:
+          settings.savings.minimumReserveCoveragePercent,
       },
       recentActivity,
     };

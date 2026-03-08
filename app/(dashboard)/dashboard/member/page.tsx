@@ -305,7 +305,7 @@ export default async function MemberDashboardPage() {
 
           <section className="rounded-lg border bg-card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">My Watchlist</h2>
+              <h2 className="text-lg font-semibold">My Attention List</h2>
               <p className="text-xs text-muted-foreground">Requests and decisions that need follow-up</p>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -332,7 +332,7 @@ export default async function MemberDashboardPage() {
           </section>
 
           <section className="rounded-lg border bg-card p-6">
-            <h2 className="text-lg font-semibold">Repayment Calendar</h2>
+            <h2 className="text-lg font-semibold">Payment Calendar</h2>
             {nextDueLoan ? (
               <div className="mt-3 rounded-md border bg-background px-4 py-3">
                 <p className="text-sm font-medium">Next due date: {formatDateTimeUtc(nextDueLoan.dueAt as Date)}</p>

@@ -75,6 +75,14 @@ const formatUtcDate = (value: string) => {
   return `${day}/${month}/${year}`;
 };
 
+const parseNumeric = (value: string | number) =>
+  typeof value === "number"
+    ? value
+    : Number(String(value).replace(/[^0-9.-]/g, ""));
+
+const formatWholeMoney = (value: string | number) =>
+  Math.round(parseNumeric(value)).toLocaleString();
+
 const loanStatusChipClass = (status: string) => {
   if (status === "PENDING") {
     return "border-amber-200 bg-amber-50 text-amber-700";
@@ -105,7 +113,7 @@ const processFlowLabel = (loan: LoanRow) => {
     return "Money sent, waiting for payments";
   }
   if (loan.status === "ACTIVE") {
-    return "Repayment in progress";
+    return "Payments in progress";
   }
   if (loan.status === "DEFAULTED") {
     return "Late for long, needs follow-up";
@@ -263,11 +271,10 @@ export function LoanManagement({
   }, [currentQueryParam, query, replaceFilters]);
 
   const totalOutstanding = useCallback((loan: LoanRow) => {
-    const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
     return (
-      toNumber(loan.outstandingPrincipal) +
-      toNumber(loan.outstandingInterest) +
-      toNumber(loan.outstandingPenalty)
+      parseNumeric(loan.outstandingPrincipal) +
+      parseNumeric(loan.outstandingInterest) +
+      parseNumeric(loan.outstandingPenalty)
     );
   }, []);
 
@@ -500,6 +507,17 @@ export function LoanManagement({
 
   return (
     <section className="space-y-6">
+      {message ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {message}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <form
         onSubmit={handleApply}
         className="space-y-4 rounded-lg border bg-card p-6"
@@ -905,9 +923,9 @@ export function LoanManagement({
                   <p>
                     Amount Left (Principal/Interest/Penalty):{" "}
                     <span className="font-semibold text-foreground">
-                      {formatMoney(loan.outstandingPrincipal)} /{" "}
-                      {formatMoney(loan.outstandingInterest)} /{" "}
-                      {formatMoney(loan.outstandingPenalty)}
+                      {formatWholeMoney(loan.outstandingPrincipal)} /{" "}
+                      {formatWholeMoney(loan.outstandingInterest)} /{" "}
+                      {formatWholeMoney(loan.outstandingPenalty)}
                     </span>
                   </p>
                   <p>
@@ -992,8 +1010,8 @@ export function LoanManagement({
                     <>
                       <input
                         type="number"
-                        min={0.01}
-                        step="0.01"
+                        min={1}
+                        step="1"
                         value={repayAmounts[loan.id] ?? ""}
                         onChange={(event) =>
                           setRepayAmounts((prev) => ({
@@ -1068,7 +1086,7 @@ export function LoanManagement({
                       <td className="px-3 py-2 text-xs text-muted-foreground">{loan.loanProductName}</td>
                       <td className="px-3 py-2 text-xs">{formatMoney(loan.principalAmount)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {formatMoney(totalOutstanding(loan))}
+                        {formatWholeMoney(totalOutstanding(loan))}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {loan.dueAt ? formatUtcDate(loan.dueAt) : "-"} ({loan.termMonths}m)
@@ -1078,7 +1096,7 @@ export function LoanManagement({
                         {loan.status === "PENDING" ? (
                           <p className="mt-1 text-[11px]">
                             Approval {loan.approvalCurrentCount}/{loan.approvalRequiredCount}
-                            {loan.approvalSlaDueAt ? ` | SLA ${formatUtcDate(loan.approvalSlaDueAt)}` : ""}
+                            {loan.approvalSlaDueAt ? ` | due by ${formatUtcDate(loan.approvalSlaDueAt)}` : ""}
                           </p>
                         ) : null}
                         {loan.scheduleAutoApproved ? (
@@ -1121,8 +1139,8 @@ export function LoanManagement({
                             <>
                               <input
                                 type="number"
-                                min={0.01}
-                                step="0.01"
+                                min={1}
+                                step="1"
                                 value={repayAmounts[loan.id] ?? ""}
                                 onChange={(event) =>
                                   setRepayAmounts((prev) => ({
@@ -1139,7 +1157,7 @@ export function LoanManagement({
                                 onClick={() => handleRepay(loan)}
                                 className="rounded-lg border border-border px-2 py-1"
                               >
-                                {busyLoanId === loan.id && busyAction === "repay" ? "Posting..." : "Repay"}
+                                {busyLoanId === loan.id && busyAction === "repay" ? "Saving..." : "Record payment"}
                               </button>
                             </>
                           ) : null}
@@ -1159,8 +1177,6 @@ export function LoanManagement({
           <p className="mt-3 text-sm text-muted-foreground">No loans match this filter.</p>
         ) : null}
       </div>
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </section>
   );
 }

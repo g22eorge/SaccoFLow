@@ -104,12 +104,12 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
   return (
     <section className="space-y-6">
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Executive Brief Generator</h2>
+        <h2 className="text-lg font-semibold">Quick Summary</h2>
         <p className="mt-2 text-sm text-muted-foreground">{insights.executiveBrief}</p>
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Credit Decision Assistant</h2>
+        <h2 className="text-lg font-semibold">Loan Decision Helper</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {insights.creditDecisionAssistant.slice(0, 9).map((item) => (
             <article key={item.loanId} className="rounded-md border bg-background px-4 py-3">
@@ -123,7 +123,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Early Delinquency Prediction & Next Best Action</h2>
+        <h2 className="text-lg font-semibold">Early Late-Payment Alerts & Next Action</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {insights.collectionsNextBestAction.slice(0, 10).map((item) => (
             <article key={item.loanId} className="rounded-md border bg-background px-4 py-3">
@@ -136,7 +136,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Anomaly & Fraud Detection</h2>
+        <h2 className="text-lg font-semibold">Unusual Activity Checks</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-md border bg-background px-4 py-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">High Value Adjustments</p>
@@ -147,7 +147,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
             <p className="mt-1 text-xl font-semibold">{insights.anomalyFraudDetection.rapidLoanApplications.length}</p>
           </article>
           <article className="rounded-md border bg-background px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Approval Bypass Suspects</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Possible Approval Bypass</p>
             <p className="mt-1 text-xl font-semibold">{insights.anomalyFraudDetection.possibleApprovalBypass.length}</p>
           </article>
           <article className="rounded-md border bg-background px-4 py-3">
@@ -158,7 +158,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Donor Intelligence</h2>
+        <h2 className="text-lg font-semibold">Funding Trends</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Forecast next month inflow: {formatMoney(insights.donorIntelligence.forecastNextMonth)}
         </p>
@@ -179,7 +179,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Smart Reconciliation</h2>
+        <h2 className="text-lg font-semibold">Reconciliation Check</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Missing ledger entries: {insights.smartReconciliation.missingLedgerEntries} / {insights.smartReconciliation.sampledSavingsTransactions}
         </p>
@@ -190,7 +190,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Policy Simulator</h2>
+        <h2 className="text-lg font-semibold">What-if Simulator</h2>
         <form onSubmit={runSimulation} className="mt-3 grid gap-3 md:grid-cols-3">
           <input placeholder="Green min score" value={simInput.greenMinScore} onChange={(e) => setSimInput((prev) => ({ ...prev, greenMinScore: e.target.value }))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
           <input placeholder="Capacity multiplier" value={simInput.creditCapacityMultiplier} onChange={(e) => setSimInput((prev) => ({ ...prev, creditCapacityMultiplier: e.target.value }))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
@@ -221,7 +221,7 @@ export function AiInsightsPanel({ insights }: { insights: Insights }) {
       </section>
 
       <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Member Nudging Engine</h2>
+        <h2 className="text-lg font-semibold">Member Reminder Suggestions</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {insights.memberNudgingEngine.slice(0, 12).map((item) => (
             <article key={item.loanId} className="rounded-md border bg-background px-4 py-3">

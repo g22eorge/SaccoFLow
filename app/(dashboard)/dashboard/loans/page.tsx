@@ -501,7 +501,7 @@ export default async function LoansPage({
       : null,
     portfolioAtRiskByCount > 8
       ? {
-          title: "Start delinquency intervention",
+          title: "Follow up late loans",
           detail: `Default rate is ${portfolioAtRiskByCount.toFixed(1)}% of open loans`,
           href: "/dashboard/reports",
         }
@@ -560,7 +560,7 @@ export default async function LoansPage({
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
-                  <h2 className="text-lg font-semibold">Portfolio Snapshot</h2>
+                    <h2 className="text-lg font-semibold">Loan Summary</h2>
                   <div className="mt-4 overflow-x-auto rounded-lg border">
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -572,17 +572,17 @@ export default async function LoansPage({
                       </thead>
                       <tbody>
                         <tr className="border-t">
-                          <td className="px-3 py-2 text-xs">Open Loan Book</td>
+                          <td className="px-3 py-2 text-xs">Open Loans</td>
                           <td className="px-3 py-2 text-xs font-semibold">{openLoans.length}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">Approved: {approvedLoans.length} | Active: {activeLoans.length}</td>
                         </tr>
                         <tr className="border-t">
-                          <td className="px-3 py-2 text-xs">Total Outstanding</td>
+                          <td className="px-3 py-2 text-xs">Total Amount Left</td>
                           <td className="px-3 py-2 text-xs font-semibold">{formatMoney(totalOutstanding)}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">Principal only: {formatMoney(outstandingPrincipal)}</td>
                         </tr>
                         <tr className="border-t">
-                          <td className="px-3 py-2 text-xs">Average Loan Ticket</td>
+                          <td className="px-3 py-2 text-xs">Average Loan Size</td>
                           <td className="px-3 py-2 text-xs font-semibold">{formatMoney(averageTicket)}</td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">Across all loaded loans</td>
                         </tr>
@@ -592,9 +592,9 @@ export default async function LoansPage({
                           <td className="px-3 py-2 text-xs text-muted-foreground">Target {"<= 15"}</td>
                         </tr>
                         <tr className="border-t">
-                          <td className="px-3 py-2 text-xs">Default Rate</td>
+                          <td className="px-3 py-2 text-xs">Late Loan Rate</td>
                           <td className="px-3 py-2 text-xs font-semibold">{portfolioAtRiskByCount.toFixed(1)}%</td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">{defaultedLoans.length} defaulted of {openLoans.length} open</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{defaultedLoans.length} long-late loans out of {openLoans.length} open loans</td>
                         </tr>
                         <tr className="border-t">
                           <td className="px-3 py-2 text-xs">Overdue Open Loans</td>
@@ -641,9 +641,9 @@ export default async function LoansPage({
                   </section>
 
                   <section className="rounded-lg border bg-card p-6">
-                    <h2 className="text-lg font-semibold">Top Exposures</h2>
+                    <h2 className="text-lg font-semibold">Largest Amounts Left</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Largest outstanding positions requiring close monitoring.
+                      Largest unpaid balances that may need close follow-up.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
@@ -651,7 +651,7 @@ export default async function LoansPage({
                           <tr>
                             <th className="px-3 py-2">Member</th>
                             <th className="px-3 py-2">Status</th>
-                            <th className="px-3 py-2">Exposure</th>
+                              <th className="px-3 py-2">Amount Left</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -672,7 +672,7 @@ export default async function LoansPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Scenario Outlook</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Stress checks for credit risk and recovery planning.
+                      Quick what-if checks for possible loss and recovery planning.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
@@ -702,7 +702,7 @@ export default async function LoansPage({
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Priority Actions</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Recommended interventions from the current loan risk posture.
+                      Recommended next steps from current loan performance.
                     </p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       {actionQueue.length > 0 ? (
@@ -720,7 +720,7 @@ export default async function LoansPage({
                                 <td className="px-3 py-2 text-xs font-semibold">{action.title}</td>
                                 <td className="px-3 py-2 text-xs text-muted-foreground">{action.detail}</td>
                                 <td className="px-3 py-2 text-xs">
-                                  <Link href={action.href} className="text-[#cc5500]">Open recommendation</Link>
+                                  <Link href={action.href} className="text-[#cc5500]">Open action</Link>
                                 </td>
                               </tr>
                             ))}
@@ -728,8 +728,8 @@ export default async function LoansPage({
                         </table>
                       ) : (
                         <div className="px-4 py-3">
-                          <p className="text-sm font-semibold text-emerald-700">No immediate intervention flags.</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Credit portfolio is within current policy thresholds.</p>
+                          <p className="text-sm font-semibold text-emerald-700">Nothing urgent right now.</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Loan performance is within current policy limits.</p>
                         </div>
                       )}
                     </div>
@@ -783,9 +783,9 @@ export default async function LoansPage({
 
                 {settings.autoDecision.enableDelinquencyEarlyWarnings ? (
                   <section className="rounded-lg border bg-card p-6">
-                  <h2 className="text-lg font-semibold">Delinquency Early Warnings</h2>
+                  <h2 className="text-lg font-semibold">Early Warning Alerts</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Heuristic risk engine highlights accounts likely to slip before default.
+                    Flags loans likely to become long-late if no action is taken.
                   </p>
                   <div className="mt-4 overflow-x-auto rounded-lg border">
                     {earlyWarnings.length > 0 ? (
@@ -794,8 +794,8 @@ export default async function LoansPage({
                           <tr>
                             <th className="px-3 py-2">Member</th>
                             <th className="px-3 py-2">Severity</th>
-                            <th className="px-3 py-2">Signal</th>
-                            <th className="px-3 py-2">Recommended Action</th>
+                            <th className="px-3 py-2">Reason</th>
+                            <th className="px-3 py-2">Suggested Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -811,7 +811,7 @@ export default async function LoansPage({
                       </table>
                     ) : (
                       <div className="px-4 py-3">
-                        <p className="text-sm font-semibold text-emerald-700">No early warning flags right now.</p>
+                        <p className="text-sm font-semibold text-emerald-700">No early warnings right now.</p>
                         <p className="mt-1 text-xs text-muted-foreground">Active loans are currently within expected repayment trajectory.</p>
                       </div>
                     )}

@@ -62,7 +62,9 @@ export const settingsSchema = z.object({
     monthlyWithdrawalLimit: z.number().nonnegative(),
     withdrawalApprovalThreshold: z.number().nonnegative(),
     liquidityReserveRatioPercent: z.number().min(0).max(100),
+    minimumReserveCoveragePercent: z.number().min(0).max(300),
     deployableShareCapitalRatioPercent: z.number().min(0).max(100),
+    maxInvestmentAllocationPercent: z.number().min(0).max(100),
     dormancyAfterDays: z.number().int().nonnegative(),
   }),
   incomeCharges: z.object({
@@ -258,7 +260,9 @@ export const defaultSettings: AppSettings = {
     monthlyWithdrawalLimit: 5000000,
     withdrawalApprovalThreshold: 300000,
     liquidityReserveRatioPercent: 20,
+    minimumReserveCoveragePercent: 100,
     deployableShareCapitalRatioPercent: 40,
+    maxInvestmentAllocationPercent: 20,
     dormancyAfterDays: 180,
   },
   incomeCharges: {
@@ -641,8 +645,18 @@ export const settingsSections: SettingsSection[] = [
         type: "number",
       },
       {
+        key: "minimumReserveCoveragePercent",
+        label: "Minimum reserve coverage (%)",
+        type: "number",
+      },
+      {
         key: "deployableShareCapitalRatioPercent",
         label: "Deployable share capital ratio (%)",
+        type: "number",
+      },
+      {
+        key: "maxInvestmentAllocationPercent",
+        label: "Max investment allocation (%)",
         type: "number",
       },
       { key: "dormancyAfterDays", label: "Dormancy after days", type: "number" },

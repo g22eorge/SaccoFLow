@@ -88,6 +88,20 @@ export default async function Page() {
     dashboard.monitors.liquidityCoveragePercent ?? 0,
   );
   const recoveryRate30d = Number(dashboard.monitors.recoveryRate30d ?? 0);
+  const investmentAllocated = toNumber(dashboard.monitors.investmentAllocated ?? "0");
+  const investmentCapAmount = toNumber(dashboard.monitors.investmentCapAmount ?? "0");
+  const investmentAllocationPercent = Number(
+    dashboard.monitors.investmentAllocationPercent ?? 0,
+  );
+  const maxInvestmentAllocationPercent = Number(
+    dashboard.monitors.maxInvestmentAllocationPercent ?? 0,
+  );
+  const reserveCoveragePercent = Number(
+    dashboard.monitors.reserveCoveragePercent ?? 0,
+  );
+  const minimumReserveCoveragePercent = Number(
+    dashboard.monitors.minimumReserveCoveragePercent ?? 100,
+  );
   const utilizationPercent =
     capitalCapacity > 0 ? (outstandingPrincipal / capitalCapacity) * 100 : 0;
 
@@ -169,8 +183,8 @@ export default async function Page() {
       : null,
     portfolioRiskPercent > 8
       ? {
-          title: "Run delinquency intervention",
-          detail: `PAR is ${portfolioRiskPercent.toFixed(1)}%, above target`,
+          title: "Follow up late loans",
+          detail: `Late-loan rate is ${portfolioRiskPercent.toFixed(1)}%, above target`,
           href: "/dashboard/reports",
         }
       : null,
@@ -200,17 +214,17 @@ export default async function Page() {
               <section className="space-y-6">
                 <div className="rounded-lg border bg-card p-6">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
-                    Executive View
+                    Overview
                   </p>
                   <h1 className="mt-2 text-2xl font-bold">Decision Dashboard</h1>
                   <p className="mt-2 text-muted-foreground">
-                    Capital health, portfolio risk, and action queues in one snapshot.
+                    Cash health, loan risk, and key actions in one snapshot.
                   </p>
                 </div>
 
                 <section className="rounded-lg border bg-card p-6">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-semibold">Operator Playbook</h2>
+                    <h2 className="text-lg font-semibold">Daily Action Guide</h2>
                     <span className="rounded-full border border-[#cc5500] bg-orange-50 px-2 py-0.5 text-xs font-semibold text-[#cc5500]">
                       Quick Start
                     </span>
@@ -226,16 +240,16 @@ export default async function Page() {
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">Step 2</p>
-                      <p className="mt-1 text-sm font-semibold">Act on collection risk</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Prioritize high-risk cases before they roll into defaults.</p>
+                      <p className="mt-1 text-sm font-semibold">Follow up late payments</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Prioritize risky cases before they turn into long-term defaults.</p>
                       <Link href="/dashboard/collections" className="mt-2 inline-block text-xs text-[#cc5500]">
-                        Open collections workbench
+                        Open follow-up board
                       </Link>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">Step 3</p>
-                      <p className="mt-1 text-sm font-semibold">Review policy posture</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Validate risk and approval settings before new disbursements.</p>
+                      <p className="mt-1 text-sm font-semibold">Review lending settings</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Check approval and risk settings before sending new loans.</p>
                       <Link href="/dashboard/settings" className="mt-2 inline-block text-xs text-[#cc5500]">
                         Open settings
                       </Link>
@@ -249,21 +263,21 @@ export default async function Page() {
                     <p className="mt-1 text-2xl font-bold">{formatMoney(capitalBase)}</p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Liquidity Lendable</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Money Available to Lend</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.kpis.lendableFunds}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      After reserve ({dashboard.monitors.liquidityReserveRatioPercent}%), pending disbursements, and posted external capital
+                      After reserve ({dashboard.monitors.liquidityReserveRatioPercent}%), pending payouts, and posted external capital
                     </p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Capital-Supported Capacity</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Lending Capacity</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.kpis.capitalSupportedCapacity}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Includes deployable shares ({dashboard.monitors.deployableShareCapitalRatioPercent}%)
                     </p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Portfolio at Risk</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Late Loan Rate</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.monitors.portfolioRiskPercent}%</p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
@@ -315,6 +329,49 @@ export default async function Page() {
                         </div>
                       </div>
                     </div>
+                    <div className="mt-5 space-y-3 rounded-md border bg-background px-4 py-3">
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span>Reserve Coverage</span>
+                          <span>{reserveCoveragePercent.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted">
+                          <div
+                            className={`h-2 rounded-full ${
+                              reserveCoveragePercent >= minimumReserveCoveragePercent
+                                ? "bg-emerald-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{ width: `${Math.min(reserveCoveragePercent, 100)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Minimum target: {minimumReserveCoveragePercent.toFixed(0)}%
+                        </p>
+                      </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span>Investment Allocation</span>
+                          <span>{investmentAllocationPercent.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted">
+                          <div
+                            className={`h-2 rounded-full ${
+                              investmentAllocationPercent <=
+                              maxInvestmentAllocationPercent
+                                ? "bg-emerald-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(investmentAllocationPercent, 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Invested: {formatMoney(investmentAllocated)} of {formatMoney(investmentCapAmount)} cap ({maxInvestmentAllocationPercent.toFixed(0)}%)
+                        </p>
+                      </div>
+                    </div>
                   </section>
 
                   <section className="rounded-lg border bg-card p-6">
@@ -342,21 +399,21 @@ export default async function Page() {
                         </Link>
                       </article>
                       <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Open Loan Portfolio</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Open Loans Total</p>
                         <p className="mt-1 text-xl font-semibold">{formatMoney(outstandingPrincipal)}</p>
                         <Link href="/dashboard/loans" className="mt-2 inline-block text-xs text-[#cc5500]">
-                          View portfolio
+                          View loans
                         </Link>
                       </article>
                       <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Liquidity Lendable</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Money Available to Lend</p>
                         <p className="mt-1 text-xl font-semibold">{formatMoney(lendableFunds)}</p>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Available after reserve and pending disbursements.
+                          Available after reserve and pending payouts.
                         </p>
                       </article>
                       <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Lending Headroom</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Extra Lending Room</p>
                         <p className="mt-1 text-xl font-semibold">{formatMoney(lendingHeadroom)}</p>
                         <p className="mt-2 text-xs text-muted-foreground">
                           Includes deployable shares {formatMoney(deployableShareCapital)} and posted external capital {dashboard.monitors.deployableExternalCapital}.
@@ -409,7 +466,7 @@ export default async function Page() {
                             {formatMoney(scenario.headroom)}
                           </p>
                           <p className={`text-xs ${toneClass(scenario.effect)}`}>
-                            Headroom impact: {formatMoney(scenario.effect)}
+                            Impact on lending room: {formatMoney(scenario.effect)}
                           </p>
                         </article>
                       ))}
@@ -450,7 +507,7 @@ export default async function Page() {
 
                 <section className="rounded-lg border bg-card p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold">Requests Watchlist</h2>
+                    <h2 className="text-lg font-semibold">Requests to Review</h2>
                     <p className="text-xs text-muted-foreground">Time-sensitive member and loan decisions</p>
                   </div>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -502,10 +559,10 @@ export default async function Page() {
                     ) : (
                       <article className="rounded-md border bg-background px-4 py-3 md:col-span-3">
                         <p className="text-sm font-semibold text-emerald-700">
-                          No immediate intervention flags.
+                          Nothing urgent right now.
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Continue normal monitoring cadence and review weekly trend shifts.
+                          Continue normal checks and review trends weekly.
                         </p>
                       </article>
                     )}
@@ -526,15 +583,15 @@ export default async function Page() {
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-4">
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Disbursed</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Sent Out</p>
                       <p className="mt-1 text-2xl font-bold">{formatMoney(disbursed30d)}</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Repaid</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Paid Back</p>
                       <p className="mt-1 text-2xl font-bold">{formatMoney(repaid30d)}</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Lending Position</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Net Loan Flow</p>
                       <p className={`mt-1 text-2xl font-bold ${toneClass(loanNetFlow30d)}`}>
                         {formatMoney(loanNetFlow30d)}
                       </p>

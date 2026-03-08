@@ -153,8 +153,8 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Loan {entry.loanId.slice(0, 8)} | {entry.status}</p>
-                <p className="mt-1 text-sm">Exposure: {formatMoney(entry.exposure)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Signal: {entry.reason}</p>
+                <p className="mt-1 text-sm">Amount Left: {formatMoney(entry.exposure)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Reason: {entry.reason}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Action: {entry.recommendation}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Due: {entry.dueAt ? formatDateTimeUtc(entry.dueAt) : "-"}
@@ -175,9 +175,9 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
               <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="min-w-[25ch] px-3 py-2">Member</th>
-                  <th className="px-3 py-2">Severity</th>
-                  <th className="px-3 py-2">Exposure</th>
-                  <th className="px-3 py-2">Signal</th>
+                  <th className="px-3 py-2">Priority</th>
+                  <th className="px-3 py-2">Amount Left</th>
+                  <th className="px-3 py-2">Reason</th>
                   <th className="px-3 py-2">Recommended Action</th>
                   <th className="px-3 py-2">Due</th>
                   <th className="px-3 py-2">Last Action</th>
@@ -212,10 +212,10 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
       </section>
 
       <form onSubmit={submitAction} className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Record Collection Action</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Log outreach and follow-up commitments for collections governance.
-        </p>
+          <h2 className="text-lg font-semibold">Record Follow-up Action</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+          Log outreach and follow-up commitments for better case tracking.
+          </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <select
             value={selectedLoanId}

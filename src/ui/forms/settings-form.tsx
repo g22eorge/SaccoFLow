@@ -65,7 +65,9 @@ const numberFieldHints: Record<string, string> = {
   annualRatePercent: "Typical: 12 - 36%",
   monthlyRatePercent: "Typical: 1 - 3%",
   liquidityReserveRatioPercent: "Recommended: 15 - 30%",
+  minimumReserveCoveragePercent: "Recommended: 100 - 150%",
   deployableShareCapitalRatioPercent: "Recommended: 20 - 60%",
+  maxInvestmentAllocationPercent: "Recommended: 10 - 25%",
   penaltyCapPercent: "Common cap: 10 - 30%",
 };
 

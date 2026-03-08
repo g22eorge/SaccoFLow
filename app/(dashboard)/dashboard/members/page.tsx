@@ -367,7 +367,7 @@ export default async function MembersPage({
                       ) : (
                         <article className="rounded-md border bg-background px-4 py-3">
                           <p className="text-sm font-semibold text-emerald-700">
-                            No immediate intervention flags.
+                            Nothing urgent right now.
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             Membership health is currently within policy targets.

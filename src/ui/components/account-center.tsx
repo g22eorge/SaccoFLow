@@ -264,7 +264,7 @@ export function AccountCenter({
             WhatsApp alerts
           </label>
           <label className="text-sm">
-            Repayment reminder days before due
+            Payment reminder days before due
             <input
               type="number"
               min={0}

@@ -176,7 +176,7 @@ export default async function SharesPage({
     topHolderConcentration > 55
       ? {
           title: "Diversify share ownership",
-          detail: `Top-5 concentration is ${topHolderConcentration.toFixed(1)}%`,
+          detail: `Top 5 holder share is ${topHolderConcentration.toFixed(1)}%`,
         }
       : null,
   ].filter(Boolean) as Array<{ title: string; detail: string }>;
@@ -318,7 +318,7 @@ export default async function SharesPage({
                       </table>
                     </div>
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Top-5 concentration: {topHolderConcentration.toFixed(1)}%
+                      Top 5 holder share: {topHolderConcentration.toFixed(1)}%
                     </p>
                   </section>
                 </div>
@@ -369,7 +369,7 @@ export default async function SharesPage({
                         </table>
                       ) : (
                         <div className="px-4 py-3">
-                          <p className="text-sm font-semibold text-emerald-700">No immediate intervention flags.</p>
+                          <p className="text-sm font-semibold text-emerald-700">Nothing urgent right now.</p>
                           <p className="mt-1 text-xs text-muted-foreground">Share performance is within current policy thresholds.</p>
                         </div>
                       )}

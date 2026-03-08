@@ -330,7 +330,7 @@ export default async function ReportsPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">
                     Reports Center
                   </p>
-                  <h1 className="mt-2 text-2xl font-bold">Executive Reports</h1>
+                  <h1 className="mt-2 text-2xl font-bold">Reports</h1>
                   <p className="mt-2 text-muted-foreground">
                     Capital posture, operating income, and period performance in one place.
                   </p>
