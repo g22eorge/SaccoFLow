@@ -59,6 +59,29 @@ const parseAuditJson = (value: string | null) => {
 };
 
 export const SettingsService = {
+  async getCapitalModel(saccoId: string) {
+    const settings = await this.get(saccoId);
+    return settings.capitalModel;
+  },
+
+  async assertCapitalEnabled(
+    saccoId: string,
+    source: "SAVINGS" | "SHARES" | "EXTERNAL_CAPITAL",
+  ) {
+    const capitalModel = await this.getCapitalModel(saccoId);
+    const enabled =
+      source === "SAVINGS"
+        ? capitalModel.enableSavings
+        : source === "SHARES"
+          ? capitalModel.enableShares
+          : capitalModel.enableExternalCapital;
+    if (!enabled) {
+      throw new Error(
+        `${source.replaceAll("_", " ")} is disabled for this organization. Enable it in Settings -> Capital Model.`,
+      );
+    }
+  },
+
   async get(saccoId: string) {
     const existing = await prisma.appSetting.findUnique({ where: { saccoId } });
 

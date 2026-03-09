@@ -165,6 +165,11 @@ export const settingsSchema = z.object({
     scheduledReportHourUtc: z.number().int().min(0).max(23),
     scheduledReportEmail: z.string().email(),
   }),
+  capitalModel: z.object({
+    enableSavings: z.boolean(),
+    enableShares: z.boolean(),
+    enableExternalCapital: z.boolean(),
+  }),
   documentExportPolicy: z.object({
     showOrganizationName: z.boolean(),
     showOrganizationCode: z.boolean(),
@@ -382,6 +387,11 @@ export const defaultSettings: AppSettings = {
     allowPdfExport: false,
     scheduledReportHourUtc: 5,
     scheduledReportEmail: "reports@saccoflow.local",
+  },
+  capitalModel: {
+    enableSavings: true,
+    enableShares: true,
+    enableExternalCapital: false,
   },
   documentExportPolicy: {
     showOrganizationName: true,
@@ -946,8 +956,18 @@ export const settingsSections: SettingsSection[] = [
     ],
   },
   {
+    key: "capitalModel",
+    title: "17. Capital Model",
+    description: "Choose which capital sources your SACCO uses in daily operations.",
+    fields: [
+      { key: "enableSavings", label: "Use savings", type: "boolean" },
+      { key: "enableShares", label: "Use shares", type: "boolean" },
+      { key: "enableExternalCapital", label: "Use external capital", type: "boolean" },
+    ],
+  },
+  {
     key: "documentExportPolicy",
-    title: "17. Document Branding & Disclosures",
+    title: "18. Document Branding & Disclosures",
     description: "Control what appears on PDF and CSV/Excel exports for payment confirmation and receipts.",
     fields: [
       { key: "showOrganizationName", label: "Show organization name", type: "boolean" },
@@ -968,7 +988,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "dataIntegrity",
-    title: "18. Data Integrity",
+    title: "19. Data Integrity",
     description: "Backup cadence and validation strictness.",
     fields: [
       { key: "backupFrequencyHours", label: "Backup frequency (hours)", type: "number" },
@@ -988,7 +1008,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "compliance",
-    title: "19. Compliance",
+    title: "20. Compliance",
     description: "KYC, AML, and borrower compliance controls.",
     fields: [
       { key: "kycRequired", label: "KYC required", type: "boolean" },
@@ -1000,7 +1020,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "experience",
-    title: "20. Language & Experience",
+    title: "21. Language & Experience",
     description: "Pick between plain language and professional finance terms.",
     fields: [
       {
@@ -1016,7 +1036,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "paymentGateway",
-    title: "21. Payment Gateway",
+    title: "22. Payment Gateway",
     description: "Per-organization PesaPal routing and webhook security settings.",
     fields: [
       {
@@ -1035,7 +1055,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "featureFlags",
-    title: "22. System Defaults & Feature Flags",
+    title: "23. System Defaults & Feature Flags",
     description: "Module flags and rollout controls.",
     fields: [
       { key: "enableMemberPortal", label: "Enable member portal", type: "boolean" },

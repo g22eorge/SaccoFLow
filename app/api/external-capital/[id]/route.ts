@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ok, withApiHandler } from "@/src/server/api/http";
 import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 export const PATCH = withApiHandler(
   async (
@@ -10,6 +11,7 @@ export const PATCH = withApiHandler(
   ) => {
     await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"]);
     const { saccoId, id: actorId } = await requireSaccoContext();
+    await SettingsService.assertCapitalEnabled(saccoId, "EXTERNAL_CAPITAL");
     const { id } = await context.params;
     const payload = await request.json();
     const updated = await ExternalCapitalService.updateStatus({

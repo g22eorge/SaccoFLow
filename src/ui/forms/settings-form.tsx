@@ -38,7 +38,7 @@ const sectionGroups = {
     "autoDecision",
   ],
   capital: ["savings", "incomeCharges"],
-  governance: ["saccoProfile", "notifications", "documentExportPolicy", "experience", "paymentGateway"],
+  governance: ["saccoProfile", "notifications", "capitalModel", "documentExportPolicy", "experience", "paymentGateway"],
 } as const;
 
 type SectionGroupKey = keyof typeof sectionGroups;
@@ -211,6 +211,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit, role }
           "approvalWorkflow",
           "autoDecision",
           "notifications",
+          "capitalModel",
           "documentExportPolicy",
           "experience",
           "paymentGateway",
@@ -419,72 +420,9 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit, role }
             </button>
           ))}
         </div>
-      </section>
-
-      <section className="rounded-lg border bg-card p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Language Preference</p>
-        <div className="mt-3 grid gap-2 md:max-w-sm">
-          <label className="space-y-1 text-sm">
-            <span className="block text-muted-foreground">App language mode</span>
-            <select
-              value={settings.experience.languageLevel}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setSettings((previous) => ({
-                  ...previous,
-                  experience: {
-                    ...previous.experience,
-                    languageLevel: event.target.value as "PLAIN" | "PROFESSIONAL",
-                  },
-                }))
-              }
-              className="w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <option value="PLAIN">Plain language</option>
-              <option value="PROFESSIONAL">Professional terms</option>
-            </select>
-          </label>
-          <p className="text-xs text-muted-foreground">
-            Changes apply after you click Save settings.
-          </p>
-        </div>
-      </section>
-
-      <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">Policy Version History</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review recent policy snapshots and rollback when needed.
+        <p className="mt-3 text-xs text-muted-foreground">
+          Active module: {sectionGroupLabels[activeGroup]}
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {versions.map((version) => (
-            <article key={version.id} className="rounded-md border bg-background px-4 py-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">{version.action}</p>
-                <p className="text-xs text-muted-foreground">{formatDateTimeUtc(version.createdAt)}</p>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                By {version.actorName ?? version.actorEmail ?? "System"}
-                {version.actorRole ? ` (${version.actorRole})` : ""}
-              </p>
-              {version.sourceVersionId ? (
-                <p className="mt-1 text-xs text-muted-foreground">From version: {version.sourceVersionId.slice(0, 8)}</p>
-              ) : null}
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={() => rollbackToVersion(version.id)}
-                  disabled={rollbackBusyId === version.id}
-                  className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs"
-                >
-                  {rollbackBusyId === version.id ? "Rolling back..." : "Rollback to this version"}
-                </button>
-              ) : null}
-            </article>
-          ))}
-          {versions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No policy versions recorded yet.</p>
-          ) : null}
-        </div>
       </section>
 
       {visibleSections.map((section) => {
@@ -584,6 +522,72 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit, role }
           </section>
         );
       })}
+
+      <section className="rounded-lg border bg-card p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Language Preference</p>
+        <div className="mt-3 grid gap-2 md:max-w-sm">
+          <label className="space-y-1 text-sm">
+            <span className="block text-muted-foreground">App language mode</span>
+            <select
+              value={settings.experience.languageLevel}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setSettings((previous) => ({
+                  ...previous,
+                  experience: {
+                    ...previous.experience,
+                    languageLevel: event.target.value as "PLAIN" | "PROFESSIONAL",
+                  },
+                }))
+              }
+              className="w-full rounded-lg border border-border bg-background px-3 py-2"
+            >
+              <option value="PLAIN">Plain language</option>
+              <option value="PROFESSIONAL">Professional terms</option>
+            </select>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Changes apply after you click Save settings.
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg border bg-card p-6">
+        <h2 className="text-lg font-semibold">Policy Version History</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Review recent policy snapshots and rollback when needed.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {versions.map((version) => (
+            <article key={version.id} className="rounded-md border bg-background px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">{version.action}</p>
+                <p className="text-xs text-muted-foreground">{formatDateTimeUtc(version.createdAt)}</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                By {version.actorName ?? version.actorEmail ?? "System"}
+                {version.actorRole ? ` (${version.actorRole})` : ""}
+              </p>
+              {version.sourceVersionId ? (
+                <p className="mt-1 text-xs text-muted-foreground">From version: {version.sourceVersionId.slice(0, 8)}</p>
+              ) : null}
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => rollbackToVersion(version.id)}
+                  disabled={rollbackBusyId === version.id}
+                  className="mt-2 rounded-lg border border-border px-3 py-1.5 text-xs"
+                >
+                  {rollbackBusyId === version.id ? "Rolling back..." : "Rollback to this version"}
+                </button>
+              ) : null}
+            </article>
+          ))}
+          {versions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No policy versions recorded yet.</p>
+          ) : null}
+        </div>
+      </section>
 
       <div className="rounded-lg border bg-card p-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Change Preview</p>

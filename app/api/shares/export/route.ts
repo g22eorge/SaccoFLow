@@ -20,6 +20,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     "LOAN_OFFICER",
   ]);
   const { saccoId, id: actorId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "SHARES");
 
   const page = Math.max(1, Number(request.nextUrl.searchParams.get("page") ?? "1") || 1);
   const formatParam = request.nextUrl.searchParams.get("format");

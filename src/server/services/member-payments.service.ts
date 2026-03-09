@@ -110,6 +110,14 @@ export const MemberPaymentsService = {
       }
     }
 
+    const capitalModel = (await SettingsService.get(input.saccoId)).capitalModel;
+    if (input.type === "SAVINGS_DEPOSIT" && !capitalModel.enableSavings) {
+      throw new Error("Savings is disabled for this organization");
+    }
+    if (input.type === "SHARE_PURCHASE" && !capitalModel.enableShares) {
+      throw new Error("Shares is disabled for this organization");
+    }
+
     const checkoutReference = `MP-${input.saccoId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const gateway = await resolveGatewayForSacco(input.saccoId);
     if (!gateway.providerEnabled && process.env.NODE_ENV === "production") {

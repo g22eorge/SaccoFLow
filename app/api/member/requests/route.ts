@@ -4,6 +4,7 @@ import { withApiHandler, created, ok } from "@/src/server/api/http";
 import { getSession, requireSaccoContext } from "@/src/server/auth/rbac";
 import { prisma } from "@/src/server/db/prisma";
 import { AuditService } from "@/src/server/services/audit.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 const memberRequestSchema = z.object({
   type: z.enum(["SAVINGS_WITHDRAWAL", "SHARE_REDEMPTION"]),
@@ -78,6 +79,13 @@ export const POST = withApiHandler(async (request: NextRequest) => {
 
   const body = await request.json();
   const parsed = memberRequestSchema.parse(body);
+  const capitalModel = (await SettingsService.get(saccoId)).capitalModel;
+  if (parsed.type === "SAVINGS_WITHDRAWAL" && !capitalModel.enableSavings) {
+    throw new Error("Savings is disabled for this organization");
+  }
+  if (parsed.type === "SHARE_REDEMPTION" && !capitalModel.enableShares) {
+    throw new Error("Shares is disabled for this organization");
+  }
   const requestId = crypto.randomUUID();
 
   await AuditService.record({

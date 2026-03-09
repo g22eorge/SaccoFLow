@@ -166,6 +166,7 @@ mock.module("@/src/server/services/settings.service", () => ({
       state.settingsUpdateArgs = { saccoId, payload, actorId };
       return payload;
     },
+    assertCapitalEnabled: async () => {},
   },
 }));
 

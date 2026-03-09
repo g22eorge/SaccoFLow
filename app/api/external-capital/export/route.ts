@@ -10,6 +10,7 @@ import { formatDateTimeUtc } from "@/src/lib/datetime";
 export const GET = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"]);
   const { saccoId, id: actorId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "EXTERNAL_CAPITAL");
   const formatParam = request.nextUrl.searchParams.get("format");
   const format =
     formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";

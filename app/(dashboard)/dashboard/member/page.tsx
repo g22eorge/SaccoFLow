@@ -10,6 +10,7 @@ import { LoansService } from "@/src/server/services/loans.service";
 import { LoanProductsService } from "@/src/server/services/loan-products.service";
 import { MemberPaymentsService } from "@/src/server/services/member-payments.service";
 import { BillingService } from "@/src/server/services/billing.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { MemberSelfService } from "@/src/ui/components/member-self-service";
@@ -96,6 +97,7 @@ export default async function MemberDashboardPage() {
     depositsPrevious30d,
     loanProducts,
     paymentIntents,
+    settings,
   ] = await Promise.all([
     SavingsService.getMemberBalance(saccoId, member.id),
     SharesService.getMemberShareBalance(saccoId, member.id),
@@ -166,6 +168,7 @@ export default async function MemberDashboardPage() {
     }),
     LoanProductsService.list(saccoId),
     MemberPaymentsService.listMemberIntents(saccoId, member.id, 12),
+    SettingsService.get(saccoId),
   ]);
 
   const requestLogs = await prisma.auditLog.findMany({
@@ -473,6 +476,7 @@ export default async function MemberDashboardPage() {
                 maxTermMonths: product.maxTermMonths,
                 repaymentFrequency: product.repaymentFrequency,
               }))}
+              capitalModel={settings.capitalModel}
             />
           </section>
         </section>

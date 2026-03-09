@@ -2,6 +2,7 @@ import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { MembersService } from "@/src/server/services/members.service";
 import { SavingsService } from "@/src/server/services/savings.service";
 import { SharesService } from "@/src/server/services/shares.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 import { SavingsTransactionForm } from "@/src/ui/forms/savings-transaction-form";
 import { SavingsTransactionsPanel } from "@/src/ui/components/savings-transactions-panel";
 import { formatMoney } from "@/src/lib/money";
@@ -23,6 +24,25 @@ export default async function SavingsPage({
     redirect("/dashboard");
   }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const settings = await SettingsService.get(saccoId);
+  if (!settings.capitalModel.enableSavings) {
+    return (
+      <>
+        <SiteHeader title="Savings" />
+        <div className="p-6">
+          <div className="rounded-lg border bg-card p-6">
+            <h2 className="text-lg font-semibold">Savings is turned off</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This organization selected a capital model that does not use savings right now.
+            </p>
+            <Link href="/dashboard/settings" className="mt-3 inline-block text-sm text-[#cc5500]">
+              Open Settings to change capital model
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
   const members = await MembersService.list({ saccoId, page: 1 });
   const transactions = await SavingsService.list({ saccoId, page });
   const hasNextPage = transactions.length === 30;

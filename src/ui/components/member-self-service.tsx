@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { formatMoney } from "@/src/lib/money";
@@ -84,23 +84,37 @@ export function MemberSelfService({
   payableLoans,
   loansPendingScheduleApproval,
   loanProducts,
+  capitalModel,
 }: {
   requests: RequestRow[];
   paymentIntents: PaymentIntentRow[];
   payableLoans: PayableLoanOption[];
   loansPendingScheduleApproval: PendingLoanSchedule[];
   loanProducts: LoanProductOption[];
+  capitalModel: {
+    enableSavings: boolean;
+    enableShares: boolean;
+    enableExternalCapital: boolean;
+  };
 }) {
   const router = useRouter();
   const [loanProductId, setLoanProductId] = useState(loanProducts[0]?.id ?? "");
   const [loanAmount, setLoanAmount] = useState("");
   const [loanTerm, setLoanTerm] = useState("12");
-  const [requestType, setRequestType] = useState<"SAVINGS_WITHDRAWAL" | "SHARE_REDEMPTION">("SAVINGS_WITHDRAWAL");
+  const [requestType, setRequestType] = useState<"SAVINGS_WITHDRAWAL" | "SHARE_REDEMPTION">(
+    capitalModel.enableSavings ? "SAVINGS_WITHDRAWAL" : "SHARE_REDEMPTION",
+  );
   const [requestAmount, setRequestAmount] = useState("");
   const [requestNote, setRequestNote] = useState("");
   const [requestFilter, setRequestFilter] = useState<"ALL" | "PENDING" | "RESOLVED">("ALL");
   const [query, setQuery] = useState("");
-  const [paymentType, setPaymentType] = useState<"SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT">("SAVINGS_DEPOSIT");
+  const [paymentType, setPaymentType] = useState<"SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT">(
+    capitalModel.enableSavings
+      ? "SAVINGS_DEPOSIT"
+      : capitalModel.enableShares
+        ? "SHARE_PURCHASE"
+        : "LOAN_REPAYMENT",
+  );
   const [paymentLoanId, setPaymentLoanId] = useState(payableLoans[0]?.id ?? "");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
@@ -136,6 +150,47 @@ export function MemberSelfService({
   });
 
   const selectedPayableLoan = payableLoans.find((loan) => loan.id === paymentLoanId) ?? null;
+  const requestOptions = useMemo(() => {
+    const options: Array<{
+      value: "SAVINGS_WITHDRAWAL" | "SHARE_REDEMPTION";
+      label: string;
+    }> = [];
+    if (capitalModel.enableSavings) {
+      options.push({ value: "SAVINGS_WITHDRAWAL", label: "Savings Withdrawal" });
+    }
+    if (capitalModel.enableShares) {
+      options.push({ value: "SHARE_REDEMPTION", label: "Share Redemption" });
+    }
+    return options;
+  }, [capitalModel.enableSavings, capitalModel.enableShares]);
+
+  const paymentOptions = useMemo(() => {
+    const options: Array<{
+      value: "SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT";
+      label: string;
+    }> = [{ value: "LOAN_REPAYMENT", label: "Pay loan" }];
+    if (capitalModel.enableSavings) {
+      options.unshift({ value: "SAVINGS_DEPOSIT", label: "Save money" });
+    }
+    if (capitalModel.enableShares) {
+      options.splice(capitalModel.enableSavings ? 1 : 0, 0, {
+        value: "SHARE_PURCHASE",
+        label: "Buy shares",
+      });
+    }
+    return options;
+  }, [capitalModel.enableSavings, capitalModel.enableShares]);
+
+  useEffect(() => {
+    const validRequest = requestOptions.some((option) => option.value === requestType);
+    if (!validRequest && requestOptions.length > 0) {
+      setRequestType(requestOptions[0].value);
+    }
+    const validPayment = paymentOptions.some((option) => option.value === paymentType);
+    if (!validPayment && paymentOptions.length > 0) {
+      setPaymentType(paymentOptions[0].value);
+    }
+  }, [paymentOptions, paymentType, requestOptions, requestType]);
 
   const submitLoan = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -321,9 +376,13 @@ export function MemberSelfService({
               setRequestType(event.target.value as "SAVINGS_WITHDRAWAL" | "SHARE_REDEMPTION")
             }
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            disabled={requestOptions.length === 0}
           >
-            <option value="SAVINGS_WITHDRAWAL">Savings Withdrawal</option>
-            <option value="SHARE_REDEMPTION">Share Redemption</option>
+            {requestOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <input
             type="number"
@@ -343,11 +402,14 @@ export function MemberSelfService({
           />
           <button
             type="submit"
-            disabled={requestSubmitting}
+            disabled={requestSubmitting || requestOptions.length === 0}
             className="rounded-lg border border-border px-3 py-2 text-sm"
           >
             {requestSubmitting ? "Submitting..." : "Submit Request"}
           </button>
+          {requestOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Savings and shares are currently disabled for this organization.</p>
+          ) : null}
           {requestMessage ? <p className="text-sm text-emerald-700">{requestMessage}</p> : null}
           {requestError ? <p className="text-sm text-red-700">{requestError}</p> : null}
         </form>
@@ -364,9 +426,11 @@ export function MemberSelfService({
             onChange={(event) => setPaymentType(event.target.value as "SAVINGS_DEPOSIT" | "SHARE_PURCHASE" | "LOAN_REPAYMENT")}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="SAVINGS_DEPOSIT">Save money</option>
-            <option value="SHARE_PURCHASE">Buy shares</option>
-            <option value="LOAN_REPAYMENT">Pay loan</option>
+            {paymentOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           {paymentType === "LOAN_REPAYMENT" ? (
             <select

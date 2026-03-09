@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { created, ok, withApiHandler } from "@/src/server/api/http";
 import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"]);
   const { saccoId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "EXTERNAL_CAPITAL");
   const page = Math.max(1, Number(request.nextUrl.searchParams.get("page") ?? "1") || 1);
   const type = request.nextUrl.searchParams.get("type") ?? undefined;
   const status = request.nextUrl.searchParams.get("status") ?? undefined;
@@ -27,6 +29,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 export const POST = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER"]);
   const { saccoId, id: actorId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "EXTERNAL_CAPITAL");
   const payload = await request.json();
   const txn = await ExternalCapitalService.record(
     {

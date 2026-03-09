@@ -168,6 +168,7 @@ export default async function DashboardLayout({
       <AppSidebar
         role={role}
         languageLevel={settings.experience.languageLevel}
+        capitalModel={settings.capitalModel}
         tenant={
           context.tenantOptions && context.tenantOptions.length > 0
             ? {

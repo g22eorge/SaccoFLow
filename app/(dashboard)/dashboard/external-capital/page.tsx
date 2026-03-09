@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 import { formatMoney } from "@/src/lib/money";
 import { ExternalCapitalPanel } from "@/src/ui/components/external-capital-panel";
 
@@ -21,6 +22,26 @@ export default async function ExternalCapitalPage({
   const { saccoId, role } = await requireSaccoContext();
   if (!["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"].includes(role)) {
     redirect("/dashboard");
+  }
+
+  const settings = await SettingsService.get(saccoId);
+  if (!settings.capitalModel.enableExternalCapital) {
+    return (
+      <>
+        <SiteHeader title="External Capital" />
+        <div className="p-6">
+          <div className="rounded-lg border bg-card p-6">
+            <h2 className="text-lg font-semibold">External capital is turned off</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This organization selected a capital model that does not use external capital right now.
+            </p>
+            <Link href="/dashboard/settings" className="mt-3 inline-block text-sm text-[#cc5500]">
+              Open Settings to change capital model
+            </Link>
+          </div>
+        </div>
+      </>
+    );
   }
 
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);

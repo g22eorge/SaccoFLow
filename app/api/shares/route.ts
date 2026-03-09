@@ -2,9 +2,11 @@ import { NextRequest } from "next/server";
 import { created, ok, withApiHandler } from "@/src/server/api/http";
 import { requireSaccoContext, requireWriteRoles } from "@/src/server/auth/rbac";
 import { SharesService } from "@/src/server/services/shares.service";
+import { SettingsService } from "@/src/server/services/settings.service";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "SHARES");
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
   const memberId = request.nextUrl.searchParams.get("memberId") ?? undefined;
   const from = request.nextUrl.searchParams.get("from");
@@ -32,6 +34,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 export const POST = withApiHandler(async (request: NextRequest) => {
   await requireWriteRoles(["SACCO_ADMIN", "TREASURER"]);
   const { id: actorId, saccoId } = await requireSaccoContext();
+  await SettingsService.assertCapitalEnabled(saccoId, "SHARES");
   const payload = { ...(await request.json()), saccoId };
   const transaction = await SharesService.record(payload, actorId);
   return created(transaction);

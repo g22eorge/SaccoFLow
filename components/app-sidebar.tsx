@@ -239,6 +239,7 @@ export function AppSidebar({
   tenant,
   languageLevel,
   badges,
+  capitalModel,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   role: Role
@@ -257,6 +258,11 @@ export function AppSidebar({
     pendingLoanRequests?: number
     pendingMemberRequests?: number
     defaultedCollectionCases?: number
+  }
+  capitalModel?: {
+    enableSavings: boolean
+    enableShares: boolean
+    enableExternalCapital: boolean
   }
 }) {
   const [liveBadges, setLiveBadges] = React.useState({
@@ -321,6 +327,22 @@ export function AppSidebar({
     }
   }, [role, tenant?.activeSaccoId])
 
+  const isCapitalRouteEnabled = (url: string) => {
+    if (!capitalModel) {
+      return true
+    }
+    if (url.startsWith("/dashboard/savings")) {
+      return capitalModel.enableSavings
+    }
+    if (url.startsWith("/dashboard/shares")) {
+      return capitalModel.enableShares
+    }
+    if (url.startsWith("/dashboard/external-capital")) {
+      return capitalModel.enableExternalCapital
+    }
+    return true
+  }
+
   const navMain = navMainItems
     .map((item) => {
       const relabeled = {
@@ -338,16 +360,16 @@ export function AppSidebar({
       }
       return relabeled
     })
-    .filter((item) => hasRole(role, item.roles))
+    .filter((item) => hasRole(role, item.roles) && isCapitalRouteEnabled(item.url))
   const navSecondary = navSecondaryItems
     .map((item) => ({
       ...item,
       title: navTitleForLevel(languageLevel ?? "PLAIN", item.title, item.url),
     }))
-    .filter((item) => hasRole(role, item.roles))
-  const documents = quickAccessItems.filter((item) => hasRole(role, item.roles))
-  const createActions = quickCreateItems.filter((item) => hasRole(role, item.roles))
-  const workQueue = inboxItems.filter((item) => hasRole(role, item.roles))
+    .filter((item) => hasRole(role, item.roles) && isCapitalRouteEnabled(item.url))
+  const documents = quickAccessItems.filter((item) => hasRole(role, item.roles) && isCapitalRouteEnabled(item.url))
+  const createActions = quickCreateItems.filter((item) => hasRole(role, item.roles) && isCapitalRouteEnabled(item.url))
+  const workQueue = inboxItems.filter((item) => hasRole(role, item.roles) && isCapitalRouteEnabled(item.url))
 
   const navUser = {
     name: user.name,
