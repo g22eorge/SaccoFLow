@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { formatMoney } from "@/src/lib/money";
 
+const MIN_LOAN_REPAYMENT_AMOUNT = 10_000;
+
 type RequestRow = {
   id: string;
   type: string;
@@ -132,6 +134,8 @@ export function MemberSelfService({
         : `${request.type} ${request.note ?? ""} ${request.status}`.toLowerCase().includes(q);
     return statusPass && queryPass;
   });
+
+  const selectedPayableLoan = payableLoans.find((loan) => loan.id === paymentLoanId) ?? null;
 
   const submitLoan = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -413,7 +417,23 @@ export function MemberSelfService({
           </button>
           {paymentType === "LOAN_REPAYMENT" && payableLoans.length === 0 ? (
             <p className="text-xs text-muted-foreground md:col-span-2">
-              No active/disbursed loans available for payment.
+              No active, disbursed, or defaulted loans available for payment.
+            </p>
+          ) : null}
+          {paymentType === "LOAN_REPAYMENT" ? (
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Minimum loan repayment is {formatMoney(MIN_LOAN_REPAYMENT_AMOUNT)}. If your remaining balance is below that,
+              pay the full remaining amount to clear it.
+            </p>
+          ) : null}
+          {paymentType === "LOAN_REPAYMENT" ? (
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Tiny rounding leftovers (up to 1) are auto-cleared after a normal repayment.
+            </p>
+          ) : null}
+          {paymentType === "LOAN_REPAYMENT" && selectedPayableLoan ? (
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Remaining on selected loan: {formatMoney(selectedPayableLoan.outstandingAmount)}
             </p>
           ) : null}
           {paymentMessage ? <p className="text-sm text-emerald-700 md:col-span-2">{paymentMessage}</p> : null}

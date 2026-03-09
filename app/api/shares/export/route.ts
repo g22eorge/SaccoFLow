@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { SharesService } from "@/src/server/services/shares.service";
 import { AuditService } from "@/src/server/services/audit.service";
-import { toCsv, toSimplePdf } from "@/src/server/export/tabular";
+import { SettingsService } from "@/src/server/services/settings.service";
+import { buildExportMetadata } from "@/src/server/export/branding";
+import { toCsv, toSimplePdf, toXlsx } from "@/src/server/export/tabular";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { formatMemberLabel } from "@/src/lib/member-label";
 import { withApiHandler } from "@/src/server/api/http";
@@ -23,6 +25,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   const formatParam = request.nextUrl.searchParams.get("format");
   const format =
     formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";
+  const settings = await SettingsService.get(saccoId);
 
   const transactions = await SharesService.list({ saccoId, page });
 
@@ -47,7 +50,12 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   });
 
   if (format === "pdf") {
-    const pdf = toSimplePdf(`Shares Export (Page ${page})`, headers, rows);
+    const metadata = buildExportMetadata({
+      settings,
+      generatedAt: formatDateTimeUtc(new Date()),
+      preparedBy: actorId,
+    });
+    const pdf = toSimplePdf(`Shares Export (Page ${page})`, headers, rows, metadata);
     return new NextResponse(pdf, {
       status: 200,
       headers: {
@@ -57,18 +65,28 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 
-  const csv = toCsv(headers, rows);
+  const metadata = buildExportMetadata({
+    settings,
+    generatedAt: formatDateTimeUtc(new Date()),
+    preparedBy: actorId,
+  });
+  if (format === "excel") {
+    const xlsx = toXlsx(`Shares ${page}`, headers, rows, metadata);
+    return new NextResponse(new Uint8Array(xlsx), {
+      status: 200,
+      headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": `attachment; filename="shares-page-${page}.xlsx"`,
+      },
+    });
+  }
+
+  const csv = toCsv(headers, rows, metadata);
   return new NextResponse(csv, {
     status: 200,
     headers: {
-      "content-type":
-        format === "excel"
-          ? "application/vnd.ms-excel; charset=utf-8"
-          : "text/csv; charset=utf-8",
-      "content-disposition":
-        format === "excel"
-          ? `attachment; filename="shares-page-${page}.xls"`
-          : `attachment; filename="shares-page-${page}.csv"`,
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="shares-page-${page}.csv"`,
     },
   });
 });

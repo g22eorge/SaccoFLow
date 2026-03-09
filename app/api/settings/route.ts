@@ -20,8 +20,18 @@ export const GET = withApiHandler(async () => {
 
 export const PATCH = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"]);
-  const { id: actorId, saccoId } = await requireSaccoContext();
+  const { id: actorId, saccoId, role } = await requireSaccoContext();
   const payload = await request.json();
+  if (role !== "SUPER_ADMIN") {
+    const current = await SettingsService.get(saccoId);
+    const requestedPolicy = payload?.documentExportPolicy;
+    if (
+      requestedPolicy &&
+      JSON.stringify(requestedPolicy) !== JSON.stringify(current.documentExportPolicy)
+    ) {
+      throw new Error("Only super admin can change document export policy");
+    }
+  }
   const settings = await SettingsService.update(saccoId, payload, actorId);
   return ok(settings);
 });

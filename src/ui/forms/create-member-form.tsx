@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function CreateMemberForm() {
+export function CreateMemberForm({ canCreate }: { canCreate: boolean }) {
   const router = useRouter();
   const [memberNumber, setMemberNumber] = useState("");
   const [fullName, setFullName] = useState("");
@@ -12,6 +12,17 @@ export function CreateMemberForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  if (!canCreate) {
+    return (
+      <section className="rounded-lg border bg-card p-6">
+        <h2 className="text-lg font-semibold">Add Member</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You can view member records, but only admin, super admin, or treasurer roles can add members.
+        </p>
+      </section>
+    );
+  }
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

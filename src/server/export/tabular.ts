@@ -1,12 +1,22 @@
 type Cell = string | number | boolean | null | undefined;
+import * as XLSX from "xlsx";
 
-export const toCsv = (headers: string[], rows: Cell[][]) => {
+export const toCsv = (
+  headers: string[],
+  rows: Cell[][],
+  metadata?: Array<[string, Cell]>,
+) => {
   const escape = (value: Cell) => {
     const text = value === null || value === undefined ? "" : String(value);
     return `"${text.replaceAll('"', '""')}"`;
   };
 
+  const metadataLines = (metadata ?? []).map(([label, value]) =>
+    [escape(label), escape(value)].join(","),
+  );
   const lines = [
+    ...metadataLines,
+    ...(metadataLines.length > 0 ? [""] : []),
     headers.map((header) => escape(header)).join(","),
     ...rows.map((row) => row.map((cell) => escape(cell)).join(",")),
   ];
@@ -17,10 +27,20 @@ export const toCsv = (headers: string[], rows: Cell[][]) => {
 const escapePdfText = (value: string) =>
   value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
 
-export const toSimplePdf = (title: string, headers: string[], rows: Cell[][]) => {
+export const toSimplePdf = (
+  title: string,
+  headers: string[],
+  rows: Cell[][],
+  metadata?: Array<[string, Cell]>,
+) => {
+  const metadataLines = (metadata ?? []).map(
+    ([label, value]) => `${label}: ${value ?? ""}`,
+  );
   const lines = [
     title,
     "",
+    ...metadataLines,
+    ...(metadataLines.length > 0 ? [""] : []),
     headers.join(" | "),
     ...rows.map((row) => row.map((cell) => (cell ?? "")).join(" | ")),
   ];
@@ -67,4 +87,28 @@ export const toSimplePdf = (title: string, headers: string[], rows: Cell[][]) =>
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
 
   return Buffer.from(pdf, "utf8");
+};
+
+export const toXlsx = (
+  sheetName: string,
+  headers: string[],
+  rows: Cell[][],
+  metadata?: Array<[string, Cell]>,
+) => {
+  const aoa: Cell[][] = [];
+  for (const [label, value] of metadata ?? []) {
+    aoa.push([label, value ?? ""]);
+  }
+  if ((metadata ?? []).length > 0) {
+    aoa.push([]);
+  }
+  aoa.push(headers);
+  aoa.push(...rows);
+
+  const worksheet = XLSX.utils.aoa_to_sheet(
+    aoa as Array<Array<string | number | boolean | null>>,
+  );
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31) || "Export");
+  return XLSX.write(workbook, { bookType: "xlsx", type: "buffer" }) as Buffer;
 };

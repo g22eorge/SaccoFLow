@@ -31,6 +31,8 @@ type ApprovalMatrixState = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_REPAYMENT_AMOUNT = new Prisma.Decimal(10_000);
+const SMALL_RESIDUAL_WRITEOFF = new Prisma.Decimal(1);
 
 const addMonths = (date: Date, months: number) => {
   const next = new Date(date);
@@ -346,7 +348,9 @@ export const LoansService = {
     status?: string;
     page?: number;
     query?: string;
-    sortBy?: "dueSoon" | "outstanding" | "name";
+    sortBy?: "dueSoon" | "outstanding" | "name" | "principalAsc";
+    sizeFilter?: "ALL" | "SMALL" | "MEDIUM" | "LARGE";
+    dueFilter?: "ALL" | "OVERDUE" | "NEXT_30_DAYS";
   }) {
     const pageSize = 30;
     const page = Math.max(input.page ?? 1, 1);
@@ -364,12 +368,40 @@ export const LoansService = {
             ],
           }
         : {}),
+      ...(input.sizeFilter === "SMALL"
+        ? { principalAmount: { lte: new Prisma.Decimal(500_000) } }
+        : input.sizeFilter === "MEDIUM"
+          ? {
+              principalAmount: {
+                gt: new Prisma.Decimal(500_000),
+                lte: new Prisma.Decimal(2_000_000),
+              },
+            }
+          : input.sizeFilter === "LARGE"
+            ? { principalAmount: { gt: new Prisma.Decimal(2_000_000) } }
+            : {}),
+      ...(input.dueFilter === "OVERDUE"
+        ? {
+            dueAt: { lt: new Date() },
+            status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+          }
+        : input.dueFilter === "NEXT_30_DAYS"
+          ? {
+              dueAt: {
+                gte: new Date(),
+                lte: new Date(Date.now() + 30 * DAY_MS),
+              },
+              status: { in: ["ACTIVE", "DISBURSED", "DEFAULTED"] },
+            }
+          : {}),
     };
 
     const sortBy = input.sortBy ?? "dueSoon";
     const orderBy: Prisma.LoanOrderByWithRelationInput[] =
       sortBy === "name"
         ? [{ member: { fullName: "asc" } }, { createdAt: "desc" }, { id: "desc" }]
+        : sortBy === "principalAsc"
+          ? [{ principalAmount: "asc" }, { createdAt: "desc" }, { id: "desc" }]
         : sortBy === "outstanding"
           ? [
               { outstandingPrincipal: "desc" },
@@ -943,6 +975,13 @@ export const LoansService = {
     const interestDue = baseInterestDue;
     const principalDue = basePrincipalDue;
     const totalDue = wholeMoney(penaltyDue.plus(interestDue).plus(principalDue));
+    const smallBalanceFinalSettlement =
+      totalDue.lessThan(MIN_REPAYMENT_AMOUNT) &&
+      amount.plus(settlementTolerance).greaterThanOrEqualTo(totalDue);
+
+    if (amount.lessThan(MIN_REPAYMENT_AMOUNT) && !smallBalanceFinalSettlement) {
+      throw new Error("Repayment amount must be at least 10,000");
+    }
 
     if (totalDue.equals(0)) {
       throw new Error("Loan has no outstanding balance");
@@ -1003,7 +1042,12 @@ export const LoansService = {
     const remainingDue = nextOutstandingPrincipal
       .plus(nextOutstandingInterest)
       .plus(nextOutstandingPenalty);
-    const fullyCleared = remainingDue.lessThanOrEqualTo(settlementTolerance);
+    const smallResidualAfterNormalRepayment =
+      remainingDue.lessThanOrEqualTo(SMALL_RESIDUAL_WRITEOFF) &&
+      amount.greaterThanOrEqualTo(MIN_REPAYMENT_AMOUNT);
+    const fullyCleared =
+      remainingDue.lessThanOrEqualTo(settlementTolerance) ||
+      smallResidualAfterNormalRepayment;
     const settledPrincipal = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingPrincipal;
     const settledInterest = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingInterest;
     const settledPenalty = fullyCleared ? new Prisma.Decimal(0) : nextOutstandingPenalty;

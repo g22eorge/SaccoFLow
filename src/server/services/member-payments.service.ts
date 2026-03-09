@@ -7,6 +7,8 @@ import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 
 const DEFAULT_CURRENCY = "UGX";
+const MIN_LOAN_REPAYMENT_AMOUNT = new Prisma.Decimal(10_000);
+const SETTLEMENT_TOLERANCE = new Prisma.Decimal("0.5");
 
 const resolveGatewayForSacco = async (saccoId: string) => {
   const settings = await SettingsService.get(saccoId);
@@ -52,6 +54,9 @@ export const MemberPaymentsService = {
     }
 
     if (input.type === "LOAN_REPAYMENT") {
+      if (amount.lessThan(MIN_LOAN_REPAYMENT_AMOUNT)) {
+        throw new Error("Loan repayment must be at least 10,000");
+      }
       if (!input.loanId) {
         throw new Error("Loan repayment requires a loan selection");
       }
@@ -61,7 +66,13 @@ export const MemberPaymentsService = {
           saccoId: input.saccoId,
           memberId: input.memberId,
         },
-        select: { id: true, status: true },
+        select: {
+          id: true,
+          status: true,
+          outstandingPrincipal: true,
+          outstandingInterest: true,
+          outstandingPenalty: true,
+        },
       });
       if (!loan) {
         throw new Error("Loan not found for member");
@@ -72,6 +83,18 @@ export const MemberPaymentsService = {
         loan.status !== "DEFAULTED"
       ) {
         throw new Error("Only active, disbursed, or defaulted loans can be repaid");
+      }
+
+      const totalDue = new Prisma.Decimal(loan.outstandingPrincipal)
+        .plus(new Prisma.Decimal(loan.outstandingInterest))
+        .plus(new Prisma.Decimal(loan.outstandingPenalty))
+        .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+      const smallBalanceFinalSettlement =
+        totalDue.lessThan(MIN_LOAN_REPAYMENT_AMOUNT) &&
+        amount.plus(SETTLEMENT_TOLERANCE).greaterThanOrEqualTo(totalDue);
+
+      if (amount.lessThan(MIN_LOAN_REPAYMENT_AMOUNT) && !smallBalanceFinalSettlement) {
+        throw new Error("Loan repayment must be at least 10,000");
       }
     }
 

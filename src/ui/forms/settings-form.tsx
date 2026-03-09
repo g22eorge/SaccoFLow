@@ -23,6 +23,7 @@ type SettingsFormProps = {
     changedCount: number;
   }>;
   canEdit: boolean;
+  role: string;
 };
 
 const sectionGroups = {
@@ -37,7 +38,7 @@ const sectionGroups = {
     "autoDecision",
   ],
   capital: ["savings", "incomeCharges"],
-  governance: ["saccoProfile", "notifications", "experience", "paymentGateway"],
+  governance: ["saccoProfile", "notifications", "documentExportPolicy", "experience", "paymentGateway"],
 } as const;
 
 type SectionGroupKey = keyof typeof sectionGroups;
@@ -79,7 +80,7 @@ const parseNumber = (value: string) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
-export function SettingsForm({ initialSettings, initialVersions, canEdit }: SettingsFormProps) {
+export function SettingsForm({ initialSettings, initialVersions, canEdit, role }: SettingsFormProps) {
   const router = useRouter();
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const versions = initialVersions;
@@ -210,6 +211,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
           "approvalWorkflow",
           "autoDecision",
           "notifications",
+          "documentExportPolicy",
           "experience",
           "paymentGateway",
         ].includes(section.key),
@@ -333,6 +335,8 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
     const pairedToggleEnabled = pairedToggleKey
       ? Boolean(sectionData[pairedToggleKey])
       : true;
+    const canEditField =
+      canEdit && (sectionKey !== "documentExportPolicy" || role === "SUPER_ADMIN");
 
     if (field.type === "boolean") {
       return (
@@ -341,7 +345,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
           <input
             type="checkbox"
             checked={Boolean(currentValue)}
-            disabled={!canEdit}
+            disabled={!canEditField}
             onChange={(event) =>
               updateField(sectionKey, field, event.currentTarget.checked)
             }
@@ -356,7 +360,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
           <span className="block text-muted-foreground">{field.label}</span>
           <select
             value={String(currentValue)}
-            disabled={!canEdit}
+            disabled={!canEditField}
             onChange={(event) =>
               updateField(sectionKey, field, event.target.value)
             }
@@ -379,7 +383,7 @@ export function SettingsForm({ initialSettings, initialVersions, canEdit }: Sett
         <input
           type={inputType}
           value={String(currentValue)}
-          disabled={!canEdit || !pairedToggleEnabled}
+          disabled={!canEditField || !pairedToggleEnabled}
           onChange={(event) =>
             updateField(sectionKey, field, event.target.value)
           }

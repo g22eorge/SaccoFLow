@@ -47,7 +47,14 @@ export default async function MemberRequestsPage() {
     members.map((member) => [member.id, formatMemberLabel(member.memberNumber, member.fullName)]),
   );
 
-  const requests = logs.map((log) => {
+  const latestByEntityId = new Map<string, (typeof logs)[number]>();
+  for (const log of logs) {
+    if (!latestByEntityId.has(log.entityId)) {
+      latestByEntityId.set(log.entityId, log);
+    }
+  }
+
+  const requests = Array.from(latestByEntityId.values()).map((log) => {
     const after = log.afterJson ? JSON.parse(log.afterJson) : {};
     const memberId = log.entityId.split(":")[0];
     return {

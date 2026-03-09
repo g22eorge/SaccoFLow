@@ -54,6 +54,7 @@ export function MemberRequestsQueue({
       if (!response.ok || !payload.success) {
         throw new Error(payload.error?.message ?? "Failed to update request status");
       }
+      window.dispatchEvent(new Event("saccoflow:badge-refresh"));
       router.refresh();
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Unable to review request");

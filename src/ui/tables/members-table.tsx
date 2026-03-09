@@ -26,7 +26,13 @@ const memberStatusChipClass = (status: string) => {
   return "border-orange-200 bg-orange-50 text-[#cc5500]";
 };
 
-export function MembersTable({ members }: { members: MemberRow[] }) {
+export function MembersTable({
+  members,
+  canManage,
+}: {
+  members: MemberRow[];
+  canManage: boolean;
+}) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -287,21 +293,25 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
                           <Link href={`/dashboard/members/${member.id}`} className="rounded-lg border border-border px-2 py-1">
                             Snapshot
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(member)}
-                            className="rounded-lg border border-border px-2 py-1"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeMember(member.id)}
-                            disabled={isBusy}
-                            className="rounded-lg border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
-                          >
-                            Delete
-                          </button>
+                          {canManage ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => startEdit(member)}
+                                className="rounded-lg border border-border px-2 py-1"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeMember(member.id)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : null}
                         </>
                       )}
                     </div>
@@ -312,6 +322,11 @@ export function MembersTable({ members }: { members: MemberRow[] }) {
           </tbody>
         </table>
       </div>
+      {!canManage ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Edit and delete are available to admin, super admin, and treasurer roles.
+        </p>
+      ) : null}
       {visibleMembers.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
           No members match this filter.

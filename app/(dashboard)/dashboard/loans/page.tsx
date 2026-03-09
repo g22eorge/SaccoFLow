@@ -66,11 +66,32 @@ export default async function LoansPage({
   searchParams,
 }: {
   searchParams?:
-    | Promise<{ status?: string; page?: string; q?: string; sort?: string }>
-    | { status?: string; page?: string; q?: string; sort?: string };
+    | Promise<{
+        status?: string;
+        page?: string;
+        q?: string;
+        sort?: string;
+        size?: string;
+        due?: string;
+      }>
+    | {
+        status?: string;
+        page?: string;
+        q?: string;
+        sort?: string;
+        size?: string;
+        due?: string;
+      };
 }) {
   const resolvedSearchParams = searchParams
-    ? await (searchParams as Promise<{ status?: string; page?: string; q?: string; sort?: string }>)
+    ? await (searchParams as Promise<{
+        status?: string;
+        page?: string;
+        q?: string;
+        sort?: string;
+        size?: string;
+        due?: string;
+      }>)
     : undefined;
   const { saccoId, role } = await requireSaccoContext();
   if (
@@ -81,16 +102,39 @@ export default async function LoansPage({
   const page = Math.max(1, Number(resolvedSearchParams?.page ?? "1") || 1);
   const status = resolvedSearchParams?.status;
   const query = resolvedSearchParams?.q?.trim() ?? "";
+  const normalizedSort = resolvedSearchParams?.sort?.trim();
+  const normalizedSize = resolvedSearchParams?.size?.trim().toUpperCase();
+  const normalizedDue = resolvedSearchParams?.due?.trim().toUpperCase();
   const sortBy =
-    resolvedSearchParams?.sort === "name" ||
-    resolvedSearchParams?.sort === "outstanding" ||
-    resolvedSearchParams?.sort === "dueSoon"
-      ? resolvedSearchParams.sort
+    normalizedSort === "name" ||
+    normalizedSort === "outstanding" ||
+    normalizedSort === "principalAsc" ||
+    normalizedSort === "dueSoon"
+      ? normalizedSort
       : "dueSoon";
+  const sizeFilter =
+    normalizedSize === "SMALL" ||
+    normalizedSize === "MEDIUM" ||
+    normalizedSize === "LARGE"
+      ? normalizedSize
+      : "ALL";
+  const dueFilter =
+    normalizedDue === "OVERDUE" ||
+    normalizedDue === "NEXT_30_DAYS"
+      ? normalizedDue
+      : "ALL";
+
+  const baseParams = {
+    ...(status ? { status } : {}),
+    ...(query ? { q: query } : {}),
+    ...(sortBy !== "dueSoon" ? { sort: sortBy } : {}),
+    ...(sizeFilter !== "ALL" ? { size: sizeFilter } : {}),
+    ...(dueFilter !== "ALL" ? { due: dueFilter } : {}),
+  };
 
   const [members, pagedLoans, loanProducts, settings] = await Promise.all([
     MembersService.list({ saccoId, page: 1 }),
-    LoansService.listPaged({ saccoId, status, page, query, sortBy }),
+    LoansService.listPaged({ saccoId, status, page, query, sortBy, sizeFilter, dueFilter }),
     LoanProductsService.list(saccoId),
     SettingsService.get(saccoId),
   ]);
@@ -544,13 +588,13 @@ export default async function LoansPage({
                     </div>
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/api/loans/export?format=csv&${new URLSearchParams({ ...(status ? { status } : {}), page: String(page) }).toString()}`}
+                        href={`/api/loans/export?format=csv&${new URLSearchParams({ ...baseParams, page: String(page) }).toString()}`}
                         className="rounded-md border border-border px-3 py-1.5 text-xs"
                       >
                         Export CSV
                       </Link>
                       <Link
-                        href={`/api/loans/export?format=pdf&${new URLSearchParams({ ...(status ? { status } : {}), page: String(page) }).toString()}`}
+                        href={`/api/loans/export?format=pdf&${new URLSearchParams({ ...baseParams, page: String(page) }).toString()}`}
                         className="rounded-md border border-border px-3 py-1.5 text-xs"
                       >
                         Export PDF
@@ -561,6 +605,7 @@ export default async function LoansPage({
 
                 <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">Loan Summary</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">Quick totals for loan size, overdue cases, and risk level.</p>
                   <div className="mt-4 overflow-x-auto rounded-lg border">
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -743,6 +788,7 @@ export default async function LoansPage({
                       <p className="mt-1 text-sm text-muted-foreground">
                         Active automation and early-warning policy currently in use.
                       </p>
+                      <p className="mt-1 text-xs text-muted-foreground">These settings control auto-approval and warning behavior.</p>
                     </div>
                     <span className="rounded-full border border-[#cc5500] bg-orange-50 px-3 py-1 text-xs font-semibold text-[#cc5500]">
                       {policyLabel}
@@ -827,6 +873,8 @@ export default async function LoansPage({
                   initialQuery={query}
                   initialStatusFilter={status === "PENDING" || status === "APPROVED" || status === "DISBURSED" || status === "ACTIVE" || status === "DEFAULTED" || status === "CLEARED" ? status : "ALL"}
                   initialSortBy={sortBy}
+                  initialSizeFilter={sizeFilter}
+                  initialDueFilter={dueFilter}
                 />
 
                 <section className="rounded-lg border bg-card p-4">
@@ -836,9 +884,7 @@ export default async function LoansPage({
                       href={
                         page > 1
                           ? `/dashboard/loans?${new URLSearchParams({
-                              ...(status ? { status } : {}),
-                              ...(query ? { q: query } : {}),
-                              ...(sortBy ? { sort: sortBy } : {}),
+                              ...baseParams,
                               page: String(page - 1),
                             }).toString()}`
                           : "#"
@@ -856,9 +902,7 @@ export default async function LoansPage({
                       href={
                         hasNextPage
                           ? `/dashboard/loans?${new URLSearchParams({
-                              ...(status ? { status } : {}),
-                              ...(query ? { q: query } : {}),
-                              ...(sortBy ? { sort: sortBy } : {}),
+                              ...baseParams,
                               page: String(page + 1),
                             }).toString()}`
                           : "#"

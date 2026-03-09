@@ -4,6 +4,10 @@ export const settingsSchema = z.object({
   saccoProfile: z.object({
     organizationName: z.string().min(2),
     organizationCode: z.string().min(2),
+    logoUrl: z.string().url().or(z.literal("")),
+    contactPhone: z.string(),
+    contactEmail: z.string().email().or(z.literal("")),
+    contactAddress: z.string(),
     currency: z.string().min(3),
     timezone: z.string().min(2),
     locale: z.string().min(2),
@@ -161,6 +165,22 @@ export const settingsSchema = z.object({
     scheduledReportHourUtc: z.number().int().min(0).max(23),
     scheduledReportEmail: z.string().email(),
   }),
+  documentExportPolicy: z.object({
+    showOrganizationName: z.boolean(),
+    showOrganizationCode: z.boolean(),
+    showLogoUrl: z.boolean(),
+    showContactPhone: z.boolean(),
+    showContactEmail: z.boolean(),
+    showContactAddress: z.boolean(),
+    showPreparedBy: z.boolean(),
+    showMemberNumber: z.boolean(),
+    showTransactionReference: z.boolean(),
+    showNotes: z.boolean(),
+    showGeneratedAt: z.boolean(),
+    showConfidentialityNotice: z.boolean(),
+    confidentialityNotice: z.string(),
+    lockedToSuperAdmin: z.boolean(),
+  }),
   dataIntegrity: z.object({
     backupFrequencyHours: z.number().int().positive(),
     restoreDrillFrequencyDays: z.number().int().positive(),
@@ -202,6 +222,10 @@ export const defaultSettings: AppSettings = {
   saccoProfile: {
     organizationName: "My SACCO",
     organizationCode: "MS001",
+    logoUrl: "",
+    contactPhone: "",
+    contactEmail: "",
+    contactAddress: "",
     currency: "UGX",
     timezone: "Africa/Kampala",
     locale: "en-UG",
@@ -359,6 +383,22 @@ export const defaultSettings: AppSettings = {
     scheduledReportHourUtc: 5,
     scheduledReportEmail: "reports@saccoflow.local",
   },
+  documentExportPolicy: {
+    showOrganizationName: true,
+    showOrganizationCode: true,
+    showLogoUrl: true,
+    showContactPhone: false,
+    showContactEmail: false,
+    showContactAddress: false,
+    showPreparedBy: true,
+    showMemberNumber: true,
+    showTransactionReference: true,
+    showNotes: true,
+    showGeneratedAt: true,
+    showConfidentialityNotice: false,
+    confidentialityNotice: "This document is confidential and intended for authorized SACCO use only.",
+    lockedToSuperAdmin: true,
+  },
   dataIntegrity: {
     backupFrequencyHours: 24,
     restoreDrillFrequencyDays: 30,
@@ -418,6 +458,10 @@ export const settingsSections: SettingsSection[] = [
     fields: [
       { key: "organizationName", label: "Organization name", type: "text" },
       { key: "organizationCode", label: "Organization code", type: "text" },
+      { key: "logoUrl", label: "Logo URL", type: "text" },
+      { key: "contactPhone", label: "Contact phone", type: "text" },
+      { key: "contactEmail", label: "Contact email", type: "email" },
+      { key: "contactAddress", label: "Contact address", type: "text" },
       { key: "currency", label: "Currency", type: "text" },
       { key: "timezone", label: "Timezone", type: "text" },
       { key: "locale", label: "Locale", type: "text" },
@@ -902,8 +946,29 @@ export const settingsSections: SettingsSection[] = [
     ],
   },
   {
+    key: "documentExportPolicy",
+    title: "17. Document Branding & Disclosures",
+    description: "Control what appears on PDF and CSV/Excel exports for payment confirmation and receipts.",
+    fields: [
+      { key: "showOrganizationName", label: "Show organization name", type: "boolean" },
+      { key: "showOrganizationCode", label: "Show organization code", type: "boolean" },
+      { key: "showLogoUrl", label: "Show logo URL", type: "boolean" },
+      { key: "showContactPhone", label: "Show contact phone", type: "boolean" },
+      { key: "showContactEmail", label: "Show contact email", type: "boolean" },
+      { key: "showContactAddress", label: "Show contact address", type: "boolean" },
+      { key: "showPreparedBy", label: "Show prepared by", type: "boolean" },
+      { key: "showMemberNumber", label: "Show member number", type: "boolean" },
+      { key: "showTransactionReference", label: "Show transaction reference", type: "boolean" },
+      { key: "showNotes", label: "Show notes", type: "boolean" },
+      { key: "showGeneratedAt", label: "Show generated time", type: "boolean" },
+      { key: "showConfidentialityNotice", label: "Show confidentiality notice", type: "boolean" },
+      { key: "confidentialityNotice", label: "Confidentiality notice text", type: "text" },
+      { key: "lockedToSuperAdmin", label: "Only super admin can change", type: "boolean" },
+    ],
+  },
+  {
     key: "dataIntegrity",
-    title: "17. Data Integrity",
+    title: "18. Data Integrity",
     description: "Backup cadence and validation strictness.",
     fields: [
       { key: "backupFrequencyHours", label: "Backup frequency (hours)", type: "number" },
@@ -923,7 +988,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "compliance",
-    title: "18. Compliance",
+    title: "19. Compliance",
     description: "KYC, AML, and borrower compliance controls.",
     fields: [
       { key: "kycRequired", label: "KYC required", type: "boolean" },
@@ -935,7 +1000,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "experience",
-    title: "19. Language & Experience",
+    title: "20. Language & Experience",
     description: "Pick between plain language and professional finance terms.",
     fields: [
       {
@@ -951,7 +1016,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "paymentGateway",
-    title: "20. Payment Gateway",
+    title: "21. Payment Gateway",
     description: "Per-organization PesaPal routing and webhook security settings.",
     fields: [
       {
@@ -970,7 +1035,7 @@ export const settingsSections: SettingsSection[] = [
   },
   {
     key: "featureFlags",
-    title: "21. System Defaults & Feature Flags",
+    title: "22. System Defaults & Feature Flags",
     description: "Module flags and rollout controls.",
     fields: [
       { key: "enableMemberPortal", label: "Enable member portal", type: "boolean" },

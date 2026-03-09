@@ -51,6 +51,8 @@ type LoanRow = {
   approvalRoleGroups: string[];
 };
 
+const MIN_REPAYMENT_AMOUNT = 10_000;
+
 const trustReasonLabel = (reason: string) => {
   if (reason === "SAVINGS_ACTIVITY_TRUST_PENDING") {
     return "Savings history still short";
@@ -132,6 +134,8 @@ export function LoanManagement({
   initialQuery,
   initialStatusFilter,
   initialSortBy,
+  initialSizeFilter,
+  initialDueFilter,
 }: {
   members: MemberOption[];
   loans: LoanRow[];
@@ -144,9 +148,11 @@ export function LoanManagement({
     | "APPROVED"
     | "DISBURSED"
     | "ACTIVE"
-    | "DEFAULTED"
-    | "CLEARED";
-  initialSortBy: "name" | "outstanding" | "dueSoon";
+      | "DEFAULTED"
+      | "CLEARED";
+  initialSortBy: "name" | "outstanding" | "dueSoon" | "principalAsc";
+  initialSizeFilter: "ALL" | "SMALL" | "MEDIUM" | "LARGE";
+  initialDueFilter: "ALL" | "OVERDUE" | "NEXT_30_DAYS";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -178,7 +184,9 @@ export function LoanManagement({
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "PENDING" | "APPROVED" | "DISBURSED" | "ACTIVE" | "DEFAULTED" | "CLEARED"
   >(initialStatusFilter);
-  const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon">(initialSortBy);
+  const [sortBy, setSortBy] = useState<"name" | "outstanding" | "dueSoon" | "principalAsc">(initialSortBy);
+  const [sizeFilter, setSizeFilter] = useState<"ALL" | "SMALL" | "MEDIUM" | "LARGE">(initialSizeFilter);
+  const [dueFilter, setDueFilter] = useState<"ALL" | "OVERDUE" | "NEXT_30_DAYS">(initialDueFilter);
   const [viewMode, setViewMode] = useState<"CARDS" | "TABLE">("TABLE");
   const [optimisticStatusByLoanId, setOptimisticStatusByLoanId] = useState<Record<string, string>>({});
   const [, startTransition] = useTransition();
@@ -193,6 +201,8 @@ export function LoanManagement({
   const currentQueryParam = searchParams.get("q") ?? "";
   const currentStatusParam = searchParams.get("status") ?? "ALL";
   const currentSortParam = searchParams.get("sort") ?? "dueSoon";
+  const currentSizeParam = searchParams.get("size") ?? "ALL";
+  const currentDueParam = searchParams.get("due") ?? "ALL";
 
   useEffect(() => {
     setQuery((prev) => (prev === currentQueryParam ? prev : currentQueryParam));
@@ -216,19 +226,46 @@ export function LoanManagement({
 
   useEffect(() => {
     const sort = currentSortParam;
-    if (sort === "name" || sort === "outstanding" || sort === "dueSoon") {
+    if (sort === "name" || sort === "outstanding" || sort === "dueSoon" || sort === "principalAsc") {
       setSortBy((prev) => (prev === sort ? prev : sort));
       return;
     }
     setSortBy((prev) => (prev === "dueSoon" ? prev : "dueSoon"));
   }, [currentSortParam]);
 
+  useEffect(() => {
+    const size = currentSizeParam;
+    if (size === "SMALL" || size === "MEDIUM" || size === "LARGE") {
+      setSizeFilter((prev) => (prev === size ? prev : size));
+      return;
+    }
+    setSizeFilter((prev) => (prev === "ALL" ? prev : "ALL"));
+  }, [currentSizeParam]);
+
+  useEffect(() => {
+    const due = currentDueParam;
+    if (due === "OVERDUE" || due === "NEXT_30_DAYS") {
+      setDueFilter((prev) => (prev === due ? prev : due));
+      return;
+    }
+    setDueFilter((prev) => (prev === "ALL" ? prev : "ALL"));
+  }, [currentDueParam]);
+
   const replaceFilters = useCallback(
-    (next: { q?: string; status?: string; sort?: string; page?: string }) => {
+    (next: {
+      q?: string;
+      status?: string;
+      sort?: string;
+      size?: string;
+      due?: string;
+      page?: string;
+    }) => {
       const params = new URLSearchParams(searchParams.toString());
       const q = next.q ?? query;
       const status = next.status ?? statusFilter;
       const sort = next.sort ?? sortBy;
+      const size = next.size ?? sizeFilter;
+      const due = next.due ?? dueFilter;
 
       if (q.trim()) {
         params.set("q", q.trim());
@@ -248,6 +285,18 @@ export function LoanManagement({
         params.delete("sort");
       }
 
+      if (size && size !== "ALL") {
+        params.set("size", size);
+      } else {
+        params.delete("size");
+      }
+
+      if (due && due !== "ALL") {
+        params.set("due", due);
+      } else {
+        params.delete("due");
+      }
+
       params.set("page", next.page ?? "1");
       const nextUrl = `${pathname}?${params.toString()}`;
       const currentUrl = `${pathname}?${searchParams.toString()}`;
@@ -258,7 +307,7 @@ export function LoanManagement({
         router.replace(nextUrl);
       });
     },
-    [pathname, query, router, searchParams, sortBy, startTransition, statusFilter],
+    [dueFilter, pathname, query, router, searchParams, sizeFilter, sortBy, startTransition, statusFilter],
   );
 
   useEffect(() => {
@@ -481,8 +530,21 @@ export function LoanManagement({
   const handleRepay = async (loan: LoanRow) => {
     const rawAmount = repayAmounts[loan.id];
     const amount = Number(rawAmount);
-    if (!rawAmount || Number.isNaN(amount) || amount <= 0) {
-      setError("Enter a valid repayment amount greater than 0.");
+    const outstanding = Math.round(
+      Number(loan.outstandingPrincipal) +
+        Number(loan.outstandingInterest) +
+        Number(loan.outstandingPenalty),
+    );
+    const smallBalanceFinalSettlement =
+      outstanding > 0 && outstanding < MIN_REPAYMENT_AMOUNT && amount >= outstanding;
+
+    if (
+      !rawAmount ||
+      Number.isNaN(amount) ||
+      amount <= 0 ||
+      (amount < MIN_REPAYMENT_AMOUNT && !smallBalanceFinalSettlement)
+    ) {
+      setError("Enter at least 10,000, or clear the exact remaining balance if it is below 10,000.");
       return;
     }
 
@@ -526,6 +588,9 @@ export function LoanManagement({
         <p className="text-sm text-muted-foreground">
           Capture a loan request and push it through approval, disbursement, and
           repayment.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tiny rounding leftovers (up to 1) are auto-cleared after a normal repayment.
         </p>
         <div className="grid gap-3 sm:grid-cols-4">
           <select
@@ -772,7 +837,7 @@ export function LoanManagement({
               Filter and manage loan actions by status and risk.
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2 lg:grid-cols-5">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -803,18 +868,46 @@ export function LoanManagement({
               <option value="DEFAULTED">Defaulted</option>
               <option value="CLEARED">Cleared</option>
             </select>
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  const nextSort = event.target.value as "name" | "outstanding" | "dueSoon" | "principalAsc";
+                  setSortBy(nextSort);
+                  replaceFilters({ sort: nextSort, page: "1" });
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="dueSoon">Sort: Due soon</option>
+                <option value="outstanding">Sort: Amount left</option>
+                <option value="principalAsc">Sort: Small to big</option>
+                <option value="name">Sort: Member name</option>
+              </select>
             <select
-              value={sortBy}
+              value={sizeFilter}
               onChange={(event) => {
-                const nextSort = event.target.value as "name" | "outstanding" | "dueSoon";
-                setSortBy(nextSort);
-                replaceFilters({ sort: nextSort, page: "1" });
+                const nextSize = event.target.value as "ALL" | "SMALL" | "MEDIUM" | "LARGE";
+                setSizeFilter(nextSize);
+                replaceFilters({ size: nextSize, page: "1" });
               }}
               className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
-              <option value="dueSoon">Sort: Due soon</option>
-              <option value="outstanding">Sort: Amount left</option>
-              <option value="name">Sort: Member name</option>
+              <option value="ALL">Size: All</option>
+              <option value="SMALL">Size: Small (&lt;= 500k)</option>
+              <option value="MEDIUM">Size: Medium (500k-2m)</option>
+              <option value="LARGE">Size: Large (&gt; 2m)</option>
+            </select>
+            <select
+              value={dueFilter}
+              onChange={(event) => {
+                const nextDue = event.target.value as "ALL" | "OVERDUE" | "NEXT_30_DAYS";
+                setDueFilter(nextDue);
+                replaceFilters({ due: nextDue, page: "1" });
+              }}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="ALL">Due: All</option>
+              <option value="OVERDUE">Due: Overdue</option>
+              <option value="NEXT_30_DAYS">Due: Next 30 days</option>
             </select>
           </div>
           <div className="flex gap-2">

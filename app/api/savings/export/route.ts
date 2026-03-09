@@ -3,7 +3,9 @@ import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { SavingsService } from "@/src/server/services/savings.service";
 import { MembersService } from "@/src/server/services/members.service";
 import { AuditService } from "@/src/server/services/audit.service";
-import { toCsv, toSimplePdf } from "@/src/server/export/tabular";
+import { SettingsService } from "@/src/server/services/settings.service";
+import { buildExportMetadata } from "@/src/server/export/branding";
+import { toCsv, toSimplePdf, toXlsx } from "@/src/server/export/tabular";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { formatMemberLabel } from "@/src/lib/member-label";
 import { withApiHandler } from "@/src/server/api/http";
@@ -26,6 +28,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";
 
   const transactions = await SavingsService.list({ saccoId, page });
+  const settings = await SettingsService.get(saccoId);
   const memberIds = [...new Set(transactions.map((tx) => tx.memberId))];
   const members = await MembersService.getByIds(saccoId, memberIds);
   const memberMap = new Map(
@@ -51,7 +54,12 @@ export const GET = withApiHandler(async (request: NextRequest) => {
   });
 
   if (format === "pdf") {
-    const pdf = toSimplePdf(`Savings Export (Page ${page})`, headers, rows);
+    const metadata = buildExportMetadata({
+      settings,
+      generatedAt: formatDateTimeUtc(new Date()),
+      preparedBy: actorId,
+    });
+    const pdf = toSimplePdf(`Savings Export (Page ${page})`, headers, rows, metadata);
     return new NextResponse(pdf, {
       status: 200,
       headers: {
@@ -61,18 +69,28 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 
-  const csv = toCsv(headers, rows);
+  const metadata = buildExportMetadata({
+    settings,
+    generatedAt: formatDateTimeUtc(new Date()),
+    preparedBy: actorId,
+  });
+  if (format === "excel") {
+    const xlsx = toXlsx(`Savings ${page}`, headers, rows, metadata);
+    return new NextResponse(new Uint8Array(xlsx), {
+      status: 200,
+      headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": `attachment; filename="savings-page-${page}.xlsx"`,
+      },
+    });
+  }
+
+  const csv = toCsv(headers, rows, metadata);
   return new NextResponse(csv, {
     status: 200,
     headers: {
-      "content-type":
-        format === "excel"
-          ? "application/vnd.ms-excel; charset=utf-8"
-          : "text/csv; charset=utf-8",
-      "content-disposition":
-        format === "excel"
-          ? `attachment; filename="savings-page-${page}.xls"`
-          : `attachment; filename="savings-page-${page}.csv"`,
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="savings-page-${page}.csv"`,
     },
   });
 });

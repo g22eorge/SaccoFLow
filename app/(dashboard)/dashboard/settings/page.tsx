@@ -45,7 +45,7 @@ export default async function SettingsPage() {
                   </p>
                 </div>
 
-                <SettingsForm initialSettings={settings} initialVersions={versions} canEdit={canEdit} />
+                <SettingsForm initialSettings={settings} initialVersions={versions} canEdit={canEdit} role={role} />
               </section>
             </div>
           </div>

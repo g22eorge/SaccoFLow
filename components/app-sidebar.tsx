@@ -270,7 +270,14 @@ export function AppSidebar({
 
     const refreshBadges = async () => {
       try {
-        const response = await fetch("/api/sidebar/badges", { cache: "no-store" })
+        const response = await fetch(`/api/sidebar/badges?ts=${Date.now()}`, {
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            "cache-control": "no-cache",
+            pragma: "no-cache",
+          },
+        })
         const payload = await response.json()
         if (!response.ok || !payload?.success || !active) {
           return
@@ -289,16 +296,30 @@ export function AppSidebar({
       void refreshBadges()
     }
 
+    const onFocus = () => {
+      void refreshBadges()
+    }
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        void refreshBadges()
+      }
+    }
+
     void refreshBadges()
     const interval = window.setInterval(onRefresh, 8000)
     window.addEventListener("saccoflow:badge-refresh", onRefresh)
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisibility)
 
     return () => {
       active = false
       window.clearInterval(interval)
       window.removeEventListener("saccoflow:badge-refresh", onRefresh)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [])
+  }, [role, tenant?.activeSaccoId])
 
   const navMain = navMainItems
     .map((item) => {

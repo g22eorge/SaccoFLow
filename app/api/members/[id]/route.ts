@@ -20,7 +20,7 @@ export const PATCH = withApiHandler(
     request: NextRequest,
     context: { params: Promise<{ id: string }> },
   ) => {
-    await requireWriteRoles(["SACCO_ADMIN", "TREASURER"]);
+    await requireWriteRoles(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
     const { id: actorId, saccoId } = await requireSaccoContext();
     const { id } = await context.params;
     const payload = await request.json();
@@ -34,7 +34,7 @@ export const DELETE = withApiHandler(
     _request: NextRequest,
     context: { params: Promise<{ id: string }> },
   ) => {
-    await requireWriteRoles(["SACCO_ADMIN", "TREASURER"]);
+    await requireWriteRoles(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
     const { id: actorId, saccoId } = await requireSaccoContext();
     const { id } = await context.params;
     await MembersService.remove(id, saccoId, actorId);

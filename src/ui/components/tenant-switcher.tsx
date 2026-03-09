@@ -18,9 +18,15 @@ export function TenantSwitcher({
 }) {
   const [selected, setSelected] = useState(activeSaccoId);
   const [isPending, startTransition] = useTransition();
+  const activeTenant = tenants.find((tenant) => tenant.saccoId === activeSaccoId) ?? tenants[0];
 
   if (tenants.length <= 1) {
-    return null;
+    return activeTenant ? (
+      <div className="rounded-md border border-border bg-background px-2 py-1">
+        <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Organization</p>
+        <p className="text-xs">{activeTenant.saccoCode} - {activeTenant.saccoName}</p>
+      </div>
+    ) : null;
   }
 
   const onChange = (nextSaccoId: string) => {

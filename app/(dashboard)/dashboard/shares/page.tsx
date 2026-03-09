@@ -271,6 +271,7 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Simple checks for ownership balance and share activity.
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Shows whether share growth and withdrawals are still balanced.</p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
                         <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -329,6 +330,7 @@ export default async function SharesPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Quick what-if checks for share-capital planning.
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Useful for planning future share targets before making policy changes.</p>
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[520px] text-sm">
                         <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">

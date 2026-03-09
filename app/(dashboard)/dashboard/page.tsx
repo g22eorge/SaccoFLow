@@ -140,7 +140,7 @@ export default async function Page() {
             : ("Critical" as const),
     },
     {
-      name: "30D Net Surplus",
+      name: "30-Day Cash Change",
       value: formatMoney(netSurplus30d),
       target: ">= 0",
       status:
@@ -184,7 +184,7 @@ export default async function Page() {
     portfolioRiskPercent > 8
       ? {
           title: "Follow up late loans",
-          detail: `Late-loan rate is ${portfolioRiskPercent.toFixed(1)}%, above target`,
+          detail: `Loans behind schedule are ${portfolioRiskPercent.toFixed(1)}%, above target`,
           href: "/dashboard/reports",
         }
       : null,
@@ -261,6 +261,7 @@ export default async function Page() {
                   <article className="rounded-lg border bg-card p-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Total Capital Base</p>
                     <p className="mt-1 text-2xl font-bold">{formatMoney(capitalBase)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">All available funds combined in one total.</p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Money Available to Lend</p>
@@ -275,20 +276,26 @@ export default async function Page() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       Includes deployable shares ({dashboard.monitors.deployableShareCapitalRatioPercent}%)
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">How much lending is currently safe.</p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Late Loan Rate</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Loans Behind Schedule</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.monitors.portfolioRiskPercent}%</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Share of open loans that are past due.</p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">30D Net Surplus</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">30-Day Cash Change</p>
                     <p className={`mt-1 text-2xl font-bold ${toneClass(netSurplus30d)}`}>
                       {formatMoney(netSurplus30d)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Cash in minus cash out over the last 30 days.
                     </p>
                   </article>
                   <article className="rounded-lg border bg-card p-5">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Pending Approvals</p>
                     <p className="mt-1 text-2xl font-bold">{dashboard.kpis.pendingApprovals}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Requests still waiting for a decision.</p>
                   </article>
                 </div>
 
@@ -376,6 +383,7 @@ export default async function Page() {
 
                   <section className="rounded-lg border bg-card p-6">
                     <h2 className="text-lg font-semibold">What Needs Attention Now</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">Start with these items to keep daily operations smooth.</p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <article className="flex h-full flex-col justify-between rounded-md border bg-background px-4 py-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">Approvals Queue</p>
@@ -481,11 +489,11 @@ export default async function Page() {
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Late Loans (30+ days)</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Loans Behind Schedule (30+ days)</p>
                       <p className="mt-1 text-xl font-semibold">{par30Percent.toFixed(1)}%</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Late Loans (90+ days)</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Long-Delayed Loans (90+ days)</p>
                       <p className="mt-1 text-xl font-semibold">{par90Percent.toFixed(1)}%</p>
                     </article>
                     <article className="rounded-md border bg-background px-4 py-3">

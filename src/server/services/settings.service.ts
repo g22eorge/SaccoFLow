@@ -58,53 +58,18 @@ const parseAuditJson = (value: string | null) => {
   }
 };
 
-const getAppSettingDelegate = () =>
-  (
-    prisma as unknown as {
-      appSetting?: {
-        findUnique: (
-          args: unknown,
-        ) => Promise<{ id: string; data: unknown } | null>;
-        create: (args: unknown) => Promise<{ id: string; data: unknown }>;
-        upsert: (args: unknown) => Promise<{ id: string; data: unknown }>;
-      };
-    }
-  ).appSetting;
-
-const getAppSettingRaw = async (saccoId: string) => {
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ id: string; data: string }>
-  >(
-    'SELECT "id", "data" FROM "AppSetting" WHERE "saccoId" = ? LIMIT 1',
-    saccoId,
-  );
-  return rows[0] ?? null;
-};
-
 export const SettingsService = {
   async get(saccoId: string) {
-    const delegate = getAppSettingDelegate();
-    const existing = delegate
-      ? await delegate.findUnique({ where: { saccoId } })
-      : await getAppSettingRaw(saccoId);
+    const existing = await prisma.appSetting.findUnique({ where: { saccoId } });
 
     if (!existing) {
       const defaults = cloneDefaults();
-      if (delegate) {
-        await delegate.create({
-          data: {
-            saccoId,
-            data: defaults as Prisma.InputJsonValue,
-          },
-        });
-      } else {
-        await prisma.$executeRawUnsafe(
-          'INSERT INTO "AppSetting" ("id", "saccoId", "data", "createdAt", "updatedAt") VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
-          crypto.randomUUID(),
+      await prisma.appSetting.create({
+        data: {
           saccoId,
-          JSON.stringify(defaults),
-        );
-      }
+          data: defaults as Prisma.InputJsonValue,
+        },
+      });
       return defaults;
     }
 
@@ -118,30 +83,16 @@ export const SettingsService = {
   async update(saccoId: string, payload: unknown, actorId?: string) {
     const nextSettings = settingsSchema.parse(payload);
     const before = await this.get(saccoId);
-    const delegate = getAppSettingDelegate();
-
-    const updated = delegate
-      ? await delegate.upsert({
-          where: { saccoId },
-          update: {
-            data: nextSettings as Prisma.InputJsonValue,
-          },
-          create: {
-            saccoId,
-            data: nextSettings as Prisma.InputJsonValue,
-          },
-        })
-      : await (async () => {
-          const existing = await getAppSettingRaw(saccoId);
-          const id = existing?.id ?? crypto.randomUUID();
-          await prisma.$executeRawUnsafe(
-            'INSERT INTO "AppSetting" ("id", "saccoId", "data", "createdAt", "updatedAt") VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT("saccoId") DO UPDATE SET "data" = excluded."data", "updatedAt" = CURRENT_TIMESTAMP',
-            id,
-            saccoId,
-            JSON.stringify(nextSettings),
-          );
-          return { id, data: nextSettings };
-        })();
+    const updated = await prisma.appSetting.upsert({
+      where: { saccoId },
+      update: {
+        data: nextSettings as Prisma.InputJsonValue,
+      },
+      create: {
+        saccoId,
+        data: nextSettings as Prisma.InputJsonValue,
+      },
+    });
 
     await AuditService.record({
       saccoId,
@@ -223,30 +174,16 @@ export const SettingsService = {
 
     const target = parseStoredSettings(parseAuditJson(version.afterJson));
     const before = await this.get(saccoId);
-    const delegate = getAppSettingDelegate();
-
-    const updated = delegate
-      ? await delegate.upsert({
-          where: { saccoId },
-          update: {
-            data: target as Prisma.InputJsonValue,
-          },
-          create: {
-            saccoId,
-            data: target as Prisma.InputJsonValue,
-          },
-        })
-      : await (async () => {
-          const existing = await getAppSettingRaw(saccoId);
-          const id = existing?.id ?? crypto.randomUUID();
-          await prisma.$executeRawUnsafe(
-            'INSERT INTO "AppSetting" ("id", "saccoId", "data", "createdAt", "updatedAt") VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT("saccoId") DO UPDATE SET "data" = excluded."data", "updatedAt" = CURRENT_TIMESTAMP',
-            id,
-            saccoId,
-            JSON.stringify(target),
-          );
-          return { id, data: target };
-        })();
+    const updated = await prisma.appSetting.upsert({
+      where: { saccoId },
+      update: {
+        data: target as Prisma.InputJsonValue,
+      },
+      create: {
+        saccoId,
+        data: target as Prisma.InputJsonValue,
+      },
+    });
 
     await AuditService.record({
       saccoId,

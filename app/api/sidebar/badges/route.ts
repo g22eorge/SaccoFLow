@@ -2,6 +2,9 @@ import { ok, withApiHandler } from "@/src/server/api/http";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { prisma } from "@/src/server/db/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const roleInGroup = (userRole: string, group: "CREDIT" | "FINANCE") => {
   if (group === "CREDIT") {
     return ["LOAN_OFFICER", "SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON"].includes(userRole);
@@ -13,13 +16,42 @@ export const GET = withApiHandler(async () => {
   const context = await requireSaccoContext();
   const { saccoId, id: actorId, role } = context;
 
-  const pendingMemberRequests = await prisma.auditLog.count({
+  const memberRequestLogs = await prisma.auditLog.findMany({
     where: {
       saccoId,
       entity: "MemberRequest",
-      afterJson: { contains: '"status":"PENDING"' },
     },
+    select: {
+      entityId: true,
+      afterJson: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 500,
   });
+
+  const latestMemberRequestByEntityId = new Map<string, string | null>();
+  for (const log of memberRequestLogs) {
+    if (latestMemberRequestByEntityId.has(log.entityId)) {
+      continue;
+    }
+    latestMemberRequestByEntityId.set(log.entityId, log.afterJson);
+  }
+
+  const pendingMemberRequests = Array.from(latestMemberRequestByEntityId.values()).reduce(
+    (count, afterJson) => {
+      if (!afterJson) {
+        return count;
+      }
+      try {
+        const parsed = JSON.parse(afterJson) as { status?: unknown };
+        return parsed.status === "PENDING" ? count + 1 : count;
+      } catch {
+        return count;
+      }
+    },
+    0,
+  );
 
   const defaultedCollectionCases = await prisma.loan.count({
     where: {

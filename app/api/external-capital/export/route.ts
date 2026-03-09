@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiHandler } from "@/src/server/api/http";
 import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
-import { toCsv, toSimplePdf } from "@/src/server/export/tabular";
+import { SettingsService } from "@/src/server/services/settings.service";
+import { buildExportMetadata } from "@/src/server/export/branding";
+import { toCsv, toSimplePdf, toXlsx } from "@/src/server/export/tabular";
+import { formatDateTimeUtc } from "@/src/lib/datetime";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"]);
-  const { saccoId } = await requireSaccoContext();
-  const format = request.nextUrl.searchParams.get("format") === "pdf" ? "pdf" : "csv";
+  const { saccoId, id: actorId } = await requireSaccoContext();
+  const formatParam = request.nextUrl.searchParams.get("format");
+  const format =
+    formatParam === "pdf" ? "pdf" : formatParam === "excel" ? "excel" : "csv";
+  const settings = await SettingsService.get(saccoId);
 
   const rows = await ExternalCapitalService.list({ saccoId, page: 1 });
   const headers = [
@@ -34,9 +40,14 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     row.allocationBucket ?? "",
     row.amlFlag ? "YES" : "NO",
   ]);
+  const metadata = buildExportMetadata({
+    settings,
+    generatedAt: formatDateTimeUtc(new Date()),
+    preparedBy: actorId,
+  });
 
   if (format === "pdf") {
-    const pdf = toSimplePdf("External Capital Report", headers, tableRows);
+    const pdf = toSimplePdf("External Capital Report", headers, tableRows, metadata);
     return new NextResponse(pdf, {
       status: 200,
       headers: {
@@ -46,7 +57,18 @@ export const GET = withApiHandler(async (request: NextRequest) => {
     });
   }
 
-  const csv = toCsv(headers, tableRows);
+  if (format === "excel") {
+    const xlsx = toXlsx("External Capital", headers, tableRows, metadata);
+    return new NextResponse(new Uint8Array(xlsx), {
+      status: 200,
+      headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": 'attachment; filename="external-capital.xlsx"',
+      },
+    });
+  }
+
+  const csv = toCsv(headers, tableRows, metadata);
   return new NextResponse(csv, {
     status: 200,
     headers: {

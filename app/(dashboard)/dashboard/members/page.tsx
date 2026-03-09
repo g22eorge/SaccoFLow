@@ -29,6 +29,7 @@ export default async function MembersPage({
     redirect("/dashboard");
   }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const canManageMembers = ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"].includes(role);
   const members = await MembersService.list({ saccoId, page });
   const hasNextPage = members.length === 20;
   const balances = await Promise.all(
@@ -295,6 +296,7 @@ export default async function MembersPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Largest contributors to the SACCO savings pool.
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Helps identify members driving most of the savings balance.</p>
                     <div className="mt-4 space-y-2">
                       {topSavers.map((holder) => {
                         const share =
@@ -347,6 +349,7 @@ export default async function MembersPage({
                     <p className="mt-1 text-sm text-muted-foreground">
                       Recommended next steps from current member activity.
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Use these actions to improve member activity and response time.</p>
                     <div className="mt-4 space-y-3">
                       {actionQueue.length > 0 ? (
                         actionQueue.map((action) => (
@@ -378,8 +381,8 @@ export default async function MembersPage({
                   </section>
                 </div>
 
-                <CreateMemberForm />
-                <MembersTable members={tableMembers} />
+                <CreateMemberForm canCreate={canManageMembers} />
+                <MembersTable members={tableMembers} canManage={canManageMembers} />
 
                 <section className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between">

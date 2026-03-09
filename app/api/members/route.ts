@@ -22,7 +22,7 @@ export const GET = withApiHandler(async (request: NextRequest) => {
 });
 
 export const POST = withApiHandler(async (request: NextRequest) => {
-  await requireWriteRoles(["SACCO_ADMIN", "TREASURER"]);
+  await requireWriteRoles(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
   const { id: actorId, saccoId } = await requireSaccoContext();
   const payload = { ...(await request.json()), saccoId };
   const member = await MembersService.create(payload, actorId);

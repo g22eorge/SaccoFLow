@@ -331,7 +331,7 @@ describe("Members API", () => {
       memberNumber: "M-1001",
       saccoId: "sacco-1",
     });
-    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "TREASURER"]);
+    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
   });
 
   it("DELETE /api/members/:id passes sacco context and member id", async () => {
@@ -349,7 +349,7 @@ describe("Members API", () => {
       id: "member-77",
       saccoId: "sacco-1",
     });
-    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "TREASURER"]);
+    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
   });
 });
 
@@ -456,7 +456,7 @@ describe("Loans API", () => {
         saccoId: "sacco-1",
       },
     });
-    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "TREASURER"]);
+    expect(state.writeRoleCalls[0]).toEqual(["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"]);
   });
 });
 
