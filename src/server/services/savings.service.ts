@@ -5,6 +5,7 @@ import { LedgerService } from "@/src/server/services/ledger.service";
 import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { DashboardService } from "@/src/server/services/dashboard.service";
+import { ReceiptService } from "@/src/server/services/receipt.service";
 
 export const SavingsService = {
   async list(input: {
@@ -136,6 +137,22 @@ export const SavingsService = {
   async record(payload: unknown, actorId?: string) {
     const parsed = savingsTransactionSchema.parse(payload);
     const amount = new Prisma.Decimal(parsed.amount);
+    let contributionType = parsed.contributionType ?? "VOLUNTARY";
+
+    if (parsed.savingsProductId) {
+      const product = await prisma.savingsProduct.findFirst({
+        where: {
+          id: parsed.savingsProductId,
+          saccoId: parsed.saccoId,
+          isActive: true,
+        },
+        select: { contributionType: true },
+      });
+      if (!product) {
+        throw new Error("Savings product not found or inactive");
+      }
+      contributionType = product.contributionType;
+    }
 
     const transaction = await prisma.savingsTransaction.create({
       data: {
@@ -143,6 +160,8 @@ export const SavingsService = {
         memberId: parsed.memberId,
         type: parsed.type,
         amount,
+        contributionType,
+        savingsProductId: parsed.savingsProductId,
         note: parsed.note,
       },
     });
@@ -162,6 +181,14 @@ export const SavingsService = {
       entity: "SavingsTransaction",
       entityId: transaction.id,
       after: transaction,
+    });
+
+    await ReceiptService.issue({
+      saccoId: parsed.saccoId,
+      eventType: `SAVINGS_${parsed.type}`,
+      sourceEntity: "SavingsTransaction",
+      sourceId: transaction.id,
+      amount,
     });
 
     DashboardService.invalidateCache(parsed.saccoId);

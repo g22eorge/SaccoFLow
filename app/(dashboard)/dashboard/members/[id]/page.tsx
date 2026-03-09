@@ -8,6 +8,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 import { MemberRequestsAdminPanel } from "@/src/ui/components/member-requests-admin-panel";
+import { MemberCompliancePanel } from "@/src/ui/components/member-compliance-panel";
 import { formatMemberLabel } from "@/src/lib/member-label";
 
 export default async function MemberSnapshotPage({
@@ -40,7 +41,7 @@ export default async function MemberSnapshotPage({
     redirect("/dashboard/members");
   }
 
-  const [savingsBalance, shareBalance, loans, repayments] = await Promise.all([
+  const [savingsBalance, shareBalance, loans, repayments, kycRecords, beneficiaries, exitCases, guarantorExposure] = await Promise.all([
     SavingsService.getMemberBalance(saccoId, member.id),
     SharesService.getMemberShareBalance(saccoId, member.id),
     prisma.loan.findMany({
@@ -52,6 +53,29 @@ export default async function MemberSnapshotPage({
       where: { saccoId, memberId: member.id },
       orderBy: { paidAt: "desc" },
       take: 8,
+    }),
+    prisma.memberKycRecord.findMany({
+      where: { saccoId, memberId: member.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    prisma.memberBeneficiary.findMany({
+      where: { saccoId, memberId: member.id },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+      take: 10,
+    }),
+    prisma.memberExitCase.findMany({
+      where: { saccoId, memberId: member.id },
+      orderBy: { requestedAt: "desc" },
+      take: 10,
+    }),
+    prisma.loanGuarantorCommitment.aggregate({
+      where: {
+        saccoId,
+        guarantorMemberId: member.id,
+        status: "ACTIVE",
+      },
+      _sum: { guaranteedAmount: true },
     }),
   ]);
 
@@ -378,6 +402,39 @@ export default async function MemberSnapshotPage({
           </section>
 
           <MemberRequestsAdminPanel requests={requests} canReview={canReview} />
+
+          <MemberCompliancePanel
+            memberId={member.id}
+            canManage={canReview}
+            kycRecords={kycRecords.map((row) => ({
+              id: row.id,
+              documentType: row.documentType,
+              documentNumber: row.documentNumber,
+              documentUrl: row.documentUrl,
+              status: row.status,
+              notes: row.notes,
+              verifiedAt: row.verifiedAt ? row.verifiedAt.toISOString() : null,
+              createdAt: row.createdAt.toISOString(),
+            }))}
+            beneficiaries={beneficiaries.map((row) => ({
+              id: row.id,
+              fullName: row.fullName,
+              relationship: row.relationship,
+              phone: row.phone,
+              allocationPercent: row.allocationPercent.toString(),
+              isPrimary: row.isPrimary,
+            }))}
+            exitCases={exitCases.map((row) => ({
+              id: row.id,
+              status: row.status,
+              reason: row.reason,
+              notes: row.notes,
+              requestedAt: row.requestedAt.toISOString(),
+              reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+              completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+            }))}
+            guaranteedExposure={(guarantorExposure._sum.guaranteedAmount ?? 0).toString()}
+          />
         </section>
       </div>
     </>

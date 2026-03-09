@@ -318,7 +318,7 @@ export const BillingService = {
     return { ok: true };
   },
 
-  async getWebhookSecretByReference(reference: string) {
+  async getWebhookContextByReference(reference: string) {
     const event = await prisma.billingEvent.findFirst({
       where: { reference, provider: "PESAPAL" },
       orderBy: { createdAt: "desc" },
@@ -330,6 +330,9 @@ export const BillingService = {
     }
 
     const gateway = await resolveGatewayForSacco(event.saccoId);
-    return gateway.webhookSecret;
+    return {
+      saccoId: event.saccoId,
+      secret: gateway.webhookSecret,
+    };
   },
 };

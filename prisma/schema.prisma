@@ -93,6 +93,30 @@ enum MemberPaymentStatus {
   CANCELLED
 }
 
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum SavingsContributionType {
+  COMPULSORY
+  VOLUNTARY
+}
+
+enum ExitCaseStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum GuarantorCommitmentStatus {
+  ACTIVE
+  RELEASED
+  CLAIMED
+}
+
 model Sacco {
   id          String              @id @default(cuid())
   name        String
@@ -113,6 +137,15 @@ model Sacco {
   subscription SaccoSubscription?
   billingEvents BillingEvent[]
   memberPaymentIntents MemberPaymentIntent[]
+  savingsProducts SavingsProduct[]
+  kycRecords MemberKycRecord[]
+  beneficiaries MemberBeneficiary[]
+  guarantorCommitments LoanGuarantorCommitment[]
+  exitCases MemberExitCase[]
+  apiIdempotencyKeys ApiIdempotencyKey[]
+  webhookEvents WebhookEvent[]
+  receiptCounters ReceiptCounter[]
+  receiptVouchers ReceiptVoucher[]
 }
 
 model SaccoSubscription {
@@ -210,6 +243,9 @@ model AppUser {
   verifiedExternalCapitalTxns ExternalCapitalTransaction[] @relation("ExternalCapitalVerifiedBy")
   postedExternalCapitalTxns ExternalCapitalTransaction[]   @relation("ExternalCapitalPostedBy")
   tenantAccesses AppUserTenantAccess[]
+  verifiedKycRecords MemberKycRecord[] @relation("MemberKycVerifiedBy")
+  requestedExitCases MemberExitCase[] @relation("MemberExitRequestedBy")
+  reviewedExitCases MemberExitCase[] @relation("MemberExitReviewedBy")
 
   @@index([saccoId])
   @@index([email])
@@ -248,6 +284,10 @@ model Member {
   loanRepayments  LoanRepayment[]
   ledgerEntries   LedgerEntry[]
   paymentIntents  MemberPaymentIntent[]
+  kycRecords      MemberKycRecord[]
+  beneficiaries   MemberBeneficiary[]
+  guarantorCommitments LoanGuarantorCommitment[] @relation("GuarantorMemberCommitments")
+  exitCases       MemberExitCase[]
 
   @@unique([saccoId, memberNumber])
   @@index([saccoId])
@@ -260,6 +300,8 @@ model SavingsTransaction {
   type       SavingsTransactionType
   amount     Decimal
   note       String?
+  contributionType SavingsContributionType @default(VOLUNTARY)
+  savingsProductId String?
   createdAt  DateTime               @default(now())
   member     Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
   sacco      Sacco                  @relation(fields: [saccoId], references: [id], onDelete: Cascade)
@@ -290,6 +332,7 @@ model Loan {
   sacco                Sacco           @relation(fields: [saccoId], references: [id], onDelete: Cascade)
   repayments           LoanRepayment[]
   paymentIntents       MemberPaymentIntent[]
+  guarantorCommitments LoanGuarantorCommitment[]
 
   @@index([saccoId, memberId, status])
   @@index([loanProductId])
@@ -409,6 +452,166 @@ model AppSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   sacco     Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+}
+
+model ApiIdempotencyKey {
+  id           String   @id @default(cuid())
+  saccoId      String
+  scope        String
+  key          String
+  status       String   @default("PENDING")
+  responseJson String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sacco        Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([saccoId, scope, key])
+  @@index([saccoId, scope, createdAt])
+}
+
+model WebhookEvent {
+  id           String   @id @default(cuid())
+  saccoId      String
+  provider     String
+  eventKey     String
+  status       String   @default("PROCESSED")
+  payloadHash  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sacco        Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, eventKey])
+  @@index([saccoId, provider, createdAt])
+}
+
+model ReceiptCounter {
+  id         String   @id @default(cuid())
+  saccoId    String
+  scope      String
+  nextNumber Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  sacco      Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([saccoId, scope])
+}
+
+model ReceiptVoucher {
+  id           String   @id @default(cuid())
+  saccoId      String
+  serialNumber Int
+  receiptCode  String
+  eventType    String
+  sourceEntity String
+  sourceId     String
+  amount       Decimal
+  status       String   @default("ISSUED")
+  voidReason   String?
+  voidedAt     DateTime?
+  reissuedFromId String?
+  issuedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sacco        Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([saccoId, serialNumber])
+  @@unique([saccoId, sourceEntity, sourceId])
+  @@index([saccoId, issuedAt])
+  @@index([saccoId, status, issuedAt])
+}
+
+model SavingsProduct {
+  id               String                  @id @default(cuid())
+  saccoId          String
+  name             String
+  contributionType SavingsContributionType
+  isActive         Boolean                 @default(true)
+  minimumAmount    Decimal?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  sacco            Sacco                   @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@unique([saccoId, name])
+  @@index([saccoId, contributionType, isActive])
+}
+
+model MemberKycRecord {
+  id             String    @id @default(cuid())
+  saccoId        String
+  memberId       String
+  documentType   String
+  documentNumber String?
+  documentUrl    String?
+  status         KycStatus @default(PENDING)
+  notes          String?
+  verifiedById   String?
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  member         Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sacco          Sacco     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+  verifiedBy     AppUser?  @relation("MemberKycVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([saccoId, memberId, status])
+  @@index([saccoId, createdAt])
+}
+
+model MemberBeneficiary {
+  id                String   @id @default(cuid())
+  saccoId           String
+  memberId          String
+  fullName          String
+  relationship      String
+  phone             String?
+  allocationPercent Decimal  @default(100)
+  isPrimary         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  member            Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sacco             Sacco    @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, memberId, isPrimary])
+}
+
+model LoanGuarantorCommitment {
+  id                String                    @id @default(cuid())
+  saccoId           String
+  loanId            String
+  guarantorMemberId String
+  guaranteedAmount  Decimal
+  status            GuarantorCommitmentStatus @default(ACTIVE)
+  releasedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  loan              Loan                      @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  guarantorMember   Member                    @relation("GuarantorMemberCommitments", fields: [guarantorMemberId], references: [id], onDelete: Cascade)
+  sacco             Sacco                     @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, loanId])
+  @@index([saccoId, guarantorMemberId, status])
+}
+
+model MemberExitCase {
+  id            String         @id @default(cuid())
+  saccoId       String
+  memberId      String
+  status        ExitCaseStatus @default(REQUESTED)
+  reason        String?
+  notes         String?
+  requestedById String?
+  reviewedById  String?
+  requestedAt   DateTime       @default(now())
+  reviewedAt    DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  member        Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  requestedBy   AppUser?       @relation("MemberExitRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewedBy    AppUser?       @relation("MemberExitReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  sacco         Sacco          @relation(fields: [saccoId], references: [id], onDelete: Cascade)
+
+  @@index([saccoId, memberId, status])
+  @@index([saccoId, requestedAt])
 }
 
 model User {

@@ -219,6 +219,19 @@ export const settingsSchema = z.object({
     pilotMode: z.boolean(),
     enableAutomatedCollections: z.boolean(),
   }),
+}).superRefine((value, context) => {
+  const capital = value.capitalModel;
+  if (
+    !capital.enableSavings &&
+    !capital.enableShares &&
+    !capital.enableExternalCapital
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["capitalModel"],
+      message: "Enable at least one capital source (savings, shares, or external capital).",
+    });
+  }
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;

@@ -5,5 +5,7 @@ export const savingsTransactionSchema = z.object({
   memberId: z.string().min(1),
   type: z.enum(["DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"]),
   amount: z.coerce.number().positive(),
+  contributionType: z.enum(["COMPULSORY", "VOLUNTARY"]).optional(),
+  savingsProductId: z.string().min(1).optional(),
   note: z.string().optional(),
 });

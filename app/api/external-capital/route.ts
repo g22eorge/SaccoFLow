@@ -3,6 +3,7 @@ import { created, ok, withApiHandler } from "@/src/server/api/http";
 import { requireRoles, requireSaccoContext } from "@/src/server/auth/rbac";
 import { ExternalCapitalService } from "@/src/server/services/external-capital.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { IdempotencyService } from "@/src/server/services/idempotency.service";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   await requireRoles(["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "AUDITOR"]);
@@ -31,12 +32,19 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   const { saccoId, id: actorId } = await requireSaccoContext();
   await SettingsService.assertCapitalEnabled(saccoId, "EXTERNAL_CAPITAL");
   const payload = await request.json();
-  const txn = await ExternalCapitalService.record(
-    {
-      ...payload,
-      saccoId,
-    },
-    actorId,
-  );
+  const idempotencyKey = IdempotencyService.getKeyFromRequest(request);
+  const { data: txn } = await IdempotencyService.run({
+    saccoId,
+    scope: "EXTERNAL_CAPITAL_RECORD",
+    key: idempotencyKey,
+    execute: () =>
+      ExternalCapitalService.record(
+        {
+          ...payload,
+          saccoId,
+        },
+        actorId,
+      ),
+  });
   return created(txn);
 });

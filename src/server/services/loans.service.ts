@@ -9,6 +9,7 @@ import { AuditService } from "@/src/server/services/audit.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { LoanProductsService } from "@/src/server/services/loan-products.service";
 import { DashboardService } from "@/src/server/services/dashboard.service";
+import { ReceiptService } from "@/src/server/services/receipt.service";
 
 type AllocationTarget = "PENALTY" | "INTEREST" | "PRINCIPAL";
 
@@ -465,6 +466,7 @@ export const LoansService = {
     const parsed = loanApplicationSchema.parse(payload);
     const principalAmount = new Prisma.Decimal(parsed.principalAmount);
     const settings = await SettingsService.get(parsed.saccoId);
+    const guarantors = parsed.guarantors ?? [];
 
     const defaultProduct = await LoanProductsService.ensureDefault(parsed.saccoId);
     const loanProduct = parsed.loanProductId
@@ -496,6 +498,116 @@ export const LoansService = {
       throw new Error("Loan term exceeds configured maximum term");
     }
 
+    if (loanProduct.requireGuarantor) {
+      if (guarantors.length === 0) {
+        throw new Error("This loan product requires guarantor commitments");
+      }
+      const uniqueGuarantors = new Set<string>();
+      let coveredAmount = new Prisma.Decimal(0);
+      for (const guarantor of guarantors) {
+        if (guarantor.guarantorMemberId === parsed.memberId) {
+          throw new Error("Borrower cannot guarantee their own loan");
+        }
+        if (uniqueGuarantors.has(guarantor.guarantorMemberId)) {
+          throw new Error("Each guarantor can only be listed once");
+        }
+        uniqueGuarantors.add(guarantor.guarantorMemberId);
+        coveredAmount = coveredAmount.plus(guarantor.guaranteedAmount);
+      }
+      if (coveredAmount.lessThan(principalAmount)) {
+        throw new Error("Total guarantor commitments must cover the full requested amount");
+      }
+
+      const guarantorMembers = await prisma.member.findMany({
+        where: {
+          saccoId: parsed.saccoId,
+          id: { in: guarantors.map((entry) => entry.guarantorMemberId) },
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+      if (guarantorMembers.length !== uniqueGuarantors.size) {
+        throw new Error("All guarantors must be active members in this SACCO");
+      }
+
+      for (const guarantor of guarantors) {
+        const [activeExposure, savings, withdrawals, savingsAdjustments, sharePurchases, shareRedemptions, shareAdjustments] =
+          await Promise.all([
+            prisma.loanGuarantorCommitment.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                guarantorMemberId: guarantor.guarantorMemberId,
+                status: "ACTIVE",
+              },
+              _sum: { guaranteedAmount: true },
+            }),
+            prisma.savingsTransaction.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                type: "DEPOSIT",
+              },
+              _sum: { amount: true },
+            }),
+            prisma.savingsTransaction.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                type: "WITHDRAWAL",
+              },
+              _sum: { amount: true },
+            }),
+            prisma.savingsTransaction.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                type: "ADJUSTMENT",
+              },
+              _sum: { amount: true },
+            }),
+            prisma.ledgerEntry.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                eventType: "SHARE_PURCHASE",
+              },
+              _sum: { amount: true },
+            }),
+            prisma.ledgerEntry.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                eventType: "SHARE_REDEMPTION",
+              },
+              _sum: { amount: true },
+            }),
+            prisma.ledgerEntry.aggregate({
+              where: {
+                saccoId: parsed.saccoId,
+                memberId: guarantor.guarantorMemberId,
+                eventType: "SHARE_ADJUSTMENT",
+              },
+              _sum: { amount: true },
+            }),
+          ]);
+
+        const guaranteeCapacity = decimal(savings._sum.amount)
+          .minus(decimal(withdrawals._sum.amount))
+          .plus(decimal(savingsAdjustments._sum.amount))
+          .plus(decimal(sharePurchases._sum.amount))
+          .minus(decimal(shareRedemptions._sum.amount))
+          .plus(decimal(shareAdjustments._sum.amount))
+          .mul(2);
+        const usedExposure = decimal(activeExposure._sum.guaranteedAmount);
+        const availableExposure = Prisma.Decimal.max(new Prisma.Decimal(0), guaranteeCapacity.minus(usedExposure));
+        const requestedExposure = new Prisma.Decimal(guarantor.guaranteedAmount);
+
+        if (requestedExposure.greaterThan(availableExposure)) {
+          throw new Error("One or more guarantors exceed their available guarantee capacity");
+        }
+      }
+    }
+
     const interestAmount = getInterestAmount(
       principalAmount,
       termMonths,
@@ -508,19 +620,35 @@ export const LoansService = {
     );
     const dueAt = addMonths(new Date(), termMonths);
 
-    const loan = await prisma.loan.create({
-      data: {
-        saccoId: parsed.saccoId,
-        memberId: parsed.memberId,
-        loanProductId: loanProduct.id,
-        termMonths,
-        dueAt,
-        principalAmount,
-        interestAmount,
-        outstandingPrincipal: principalAmount,
-        outstandingInterest: interestAmount,
-        outstandingPenalty: new Prisma.Decimal(0),
-      },
+    const loan = await prisma.$transaction(async (tx) => {
+      const createdLoan = await tx.loan.create({
+        data: {
+          saccoId: parsed.saccoId,
+          memberId: parsed.memberId,
+          loanProductId: loanProduct.id,
+          termMonths,
+          dueAt,
+          principalAmount,
+          interestAmount,
+          outstandingPrincipal: principalAmount,
+          outstandingInterest: interestAmount,
+          outstandingPenalty: new Prisma.Decimal(0),
+        },
+      });
+
+      if (loanProduct.requireGuarantor && guarantors.length > 0) {
+        await tx.loanGuarantorCommitment.createMany({
+          data: guarantors.map((entry) => ({
+            saccoId: parsed.saccoId,
+            loanId: createdLoan.id,
+            guarantorMemberId: entry.guarantorMemberId,
+            guaranteedAmount: new Prisma.Decimal(entry.guaranteedAmount),
+            status: "ACTIVE",
+          })),
+        });
+      }
+
+      return createdLoan;
     });
 
     await LedgerService.record({
@@ -1120,6 +1248,14 @@ export const LoansService = {
     });
 
     DashboardService.invalidateCache(parsed.saccoId);
+
+    await ReceiptService.issue({
+      saccoId: parsed.saccoId,
+      eventType: "LOAN_REPAYMENT",
+      sourceEntity: "LoanRepayment",
+      sourceId: repayment.id,
+      amount,
+    });
 
     return repayment;
   },

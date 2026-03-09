@@ -9,6 +9,7 @@ import { AuditService } from "@/src/server/services/audit.service";
 import { DashboardService } from "@/src/server/services/dashboard.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { SharesService } from "@/src/server/services/shares.service";
+import { ReceiptService } from "@/src/server/services/receipt.service";
 
 const LARGE_INFLOW_THRESHOLD = new Prisma.Decimal(5_000_000);
 const toDecimal = (value: Prisma.Decimal | null | undefined) =>
@@ -207,6 +208,14 @@ export const ExternalCapitalService = {
       entity: "ExternalCapitalTransaction",
       entityId: txn.id,
       after: txn,
+    });
+
+    await ReceiptService.issue({
+      saccoId: parsed.saccoId,
+      eventType: "EXTERNAL_CAPITAL",
+      sourceEntity: "ExternalCapitalTransaction",
+      sourceId: txn.id,
+      amount: baseAmount,
     });
 
     DashboardService.invalidateCache(parsed.saccoId);

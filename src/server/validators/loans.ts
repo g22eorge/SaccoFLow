@@ -6,6 +6,14 @@ export const loanApplicationSchema = z.object({
   loanProductId: z.string().min(1).optional(),
   principalAmount: z.coerce.number().positive(),
   termMonths: z.coerce.number().int().positive().optional(),
+  guarantors: z
+    .array(
+      z.object({
+        guarantorMemberId: z.string().min(1),
+        guaranteedAmount: z.coerce.number().positive(),
+      }),
+    )
+    .optional(),
 });
 
 export const loanRepaymentSchema = z.object({

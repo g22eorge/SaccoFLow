@@ -21,21 +21,25 @@ export default async function DashboardLayout({
     redirect("/platform");
   }
 
-  const [pendingLoanRequests, pendingMemberRequests, defaultedCollectionCases, settings, billingAccess] = await Promise.all([
+  const [pendingLoanRequests, memberRequestLogs, defaultedCollectionCases, settings, billingAccess] = await Promise.all([
     prisma.loan.count({
       where: {
         saccoId: context.saccoId,
         status: "PENDING",
       },
     }),
-    prisma.auditLog.count({
+    prisma.auditLog.findMany({
       where: {
         saccoId: context.saccoId,
         entity: "MemberRequest",
-        afterJson: {
-          contains: '"status":"PENDING"',
-        },
       },
+      select: {
+        entityId: true,
+        afterJson: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
     }),
     prisma.loan.count({
       where: {
@@ -46,6 +50,29 @@ export default async function DashboardLayout({
     SettingsService.get(context.saccoId),
     BillingService.getAccessState(context.saccoId),
   ]);
+
+  const latestMemberRequestByEntityId = new Map<string, string | null>();
+  for (const log of memberRequestLogs) {
+    if (latestMemberRequestByEntityId.has(log.entityId)) {
+      continue;
+    }
+    latestMemberRequestByEntityId.set(log.entityId, log.afterJson);
+  }
+
+  const pendingMemberRequests = Array.from(latestMemberRequestByEntityId.values()).reduce(
+    (count, afterJson) => {
+      if (!afterJson) {
+        return count;
+      }
+      try {
+        const parsed = JSON.parse(afterJson) as { status?: unknown };
+        return parsed.status === "PENDING" ? count + 1 : count;
+      } catch {
+        return count;
+      }
+    },
+    0,
+  );
 
   const isApprovalRole = ["SACCO_ADMIN", "SUPER_ADMIN", "CHAIRPERSON", "TREASURER", "LOAN_OFFICER"].includes(
     role,

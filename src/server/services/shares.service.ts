@@ -3,6 +3,7 @@ import { prisma } from "@/src/server/db/prisma";
 import { AuditService } from "@/src/server/services/audit.service";
 import { shareTransactionSchema } from "@/src/server/validators/shares";
 import { DashboardService } from "@/src/server/services/dashboard.service";
+import { ReceiptService } from "@/src/server/services/receipt.service";
 
 const PURCHASE_EVENT = "SHARE_PURCHASE";
 const REDEMPTION_EVENT = "SHARE_REDEMPTION";
@@ -123,6 +124,14 @@ export const SharesService = {
       entity: "ShareTransaction",
       entityId: transaction.id,
       after: transaction,
+    });
+
+    await ReceiptService.issue({
+      saccoId: parsed.saccoId,
+      eventType,
+      sourceEntity: "ShareTransaction",
+      sourceId: transaction.id,
+      amount,
     });
 
     DashboardService.invalidateCache(parsed.saccoId);

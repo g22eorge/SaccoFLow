@@ -39,7 +39,7 @@ const buildCheckoutUrl = (reference: string, checkoutBase: string, callbackUrl: 
 const markerForIntent = (intentId: string) => `payment-intent:${intentId}`;
 
 export const MemberPaymentsService = {
-  async getWebhookSecretByReference(checkoutReference: string) {
+  async getWebhookContextByReference(checkoutReference: string) {
     const intent = await prisma.memberPaymentIntent.findUnique({
       where: { checkoutReference },
       select: { saccoId: true },
@@ -48,7 +48,10 @@ export const MemberPaymentsService = {
       throw new Error("Payment intent not found");
     }
     const gateway = await resolveGatewayForSacco(intent.saccoId);
-    return gateway.webhookSecret;
+    return {
+      saccoId: intent.saccoId,
+      secret: gateway.webhookSecret,
+    };
   },
 
   async createCheckoutIntent(input: {

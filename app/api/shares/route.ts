@@ -3,6 +3,7 @@ import { created, ok, withApiHandler } from "@/src/server/api/http";
 import { requireSaccoContext, requireWriteRoles } from "@/src/server/auth/rbac";
 import { SharesService } from "@/src/server/services/shares.service";
 import { SettingsService } from "@/src/server/services/settings.service";
+import { IdempotencyService } from "@/src/server/services/idempotency.service";
 
 export const GET = withApiHandler(async (request: NextRequest) => {
   const { saccoId } = await requireSaccoContext();
@@ -36,6 +37,12 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   const { id: actorId, saccoId } = await requireSaccoContext();
   await SettingsService.assertCapitalEnabled(saccoId, "SHARES");
   const payload = { ...(await request.json()), saccoId };
-  const transaction = await SharesService.record(payload, actorId);
+  const idempotencyKey = IdempotencyService.getKeyFromRequest(request);
+  const { data: transaction } = await IdempotencyService.run({
+    saccoId,
+    scope: "SHARE_TRANSACTION",
+    key: idempotencyKey,
+    execute: () => SharesService.record(payload, actorId),
+  });
   return created(transaction);
 });
