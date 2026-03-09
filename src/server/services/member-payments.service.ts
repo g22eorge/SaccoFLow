@@ -39,6 +39,18 @@ const buildCheckoutUrl = (reference: string, checkoutBase: string, callbackUrl: 
 const markerForIntent = (intentId: string) => `payment-intent:${intentId}`;
 
 export const MemberPaymentsService = {
+  async getWebhookSecretByReference(checkoutReference: string) {
+    const intent = await prisma.memberPaymentIntent.findUnique({
+      where: { checkoutReference },
+      select: { saccoId: true },
+    });
+    if (!intent) {
+      throw new Error("Payment intent not found");
+    }
+    const gateway = await resolveGatewayForSacco(intent.saccoId);
+    return gateway.webhookSecret;
+  },
+
   async createCheckoutIntent(input: {
     saccoId: string;
     memberId: string;
@@ -165,7 +177,6 @@ export const MemberPaymentsService = {
     paymentStatus: "COMPLETED" | "FAILED" | "PENDING";
     providerReference?: string;
     payload?: unknown;
-    providedSecret?: string | null;
   }) {
     const intent = await prisma.memberPaymentIntent.findUnique({
       where: { checkoutReference: input.checkoutReference },
@@ -173,11 +184,6 @@ export const MemberPaymentsService = {
 
     if (!intent) {
       throw new Error("Payment intent not found");
-    }
-
-    const gateway = await resolveGatewayForSacco(intent.saccoId);
-    if (gateway.webhookSecret && input.providedSecret !== gateway.webhookSecret) {
-      throw new Error("Invalid webhook signature");
     }
 
     if (input.paymentStatus !== "COMPLETED") {

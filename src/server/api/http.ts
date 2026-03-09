@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import { UnauthorizedError } from "@/src/server/auth/rbac";
+import { logger } from "@/src/server/observability/logger";
 
 export type ApiSuccess<T> = {
   success: true;
@@ -15,6 +17,18 @@ export type ApiFailure = {
     details?: unknown;
   };
 };
+
+export class AppError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, status = 400, code = "APP_ERROR") {
+    super(message);
+    this.name = "AppError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
 export const ok = <T>(data: T, status = 200) =>
   NextResponse.json<ApiSuccess<T>>({ success: true, data }, { status });
@@ -38,23 +52,71 @@ export const fail = (
 export const withApiHandler = <TArgs extends unknown[]>(
   handler: (...args: TArgs) => Promise<NextResponse>,
 ) => {
+  const getRequestLike = (args: unknown[]) => {
+    const candidate = args[0] as
+      | {
+          url?: string;
+          method?: string;
+          headers?: Headers;
+        }
+      | undefined;
+    if (!candidate || typeof candidate !== "object") {
+      return null;
+    }
+    return candidate;
+  };
+
   return async (...args: TArgs) => {
+    const requestId = randomUUID();
+    const requestLike = getRequestLike(args as unknown[]);
+    const route = requestLike?.url ?? "unknown";
+    const method = requestLike?.method ?? "unknown";
+
     try {
-      return await handler(...args);
+      const response = await handler(...args);
+      response.headers.set("x-request-id", requestId);
+      return response;
     } catch (error) {
       if (error instanceof UnauthorizedError) {
-        return fail(error.message, error.status, "AUTH_ERROR");
+        const response = fail(error.message, error.status, "AUTH_ERROR");
+        response.headers.set("x-request-id", requestId);
+        return response;
       }
 
       if (error instanceof ZodError) {
-        return fail("Validation error", 400, "VALIDATION_ERROR", error.issues);
+        const response = fail("Validation error", 400, "VALIDATION_ERROR", error.issues);
+        response.headers.set("x-request-id", requestId);
+        return response;
+      }
+
+      if (error instanceof AppError) {
+        const response = fail(error.message, error.status, error.code);
+        response.headers.set("x-request-id", requestId);
+        return response;
       }
 
       if (error instanceof Error) {
-        return fail(error.message, 400, "BAD_REQUEST");
+        logger.warn("Handled API business error", {
+          requestId,
+          route,
+          method,
+          errorMessage: error.message,
+        });
+        const response = fail(error.message, 400, "BAD_REQUEST");
+        response.headers.set("x-request-id", requestId);
+        return response;
       }
 
-      return fail("Internal server error", 500, "INTERNAL_ERROR");
+      logger.error("Unhandled API error", {
+        requestId,
+        route,
+        method,
+        errorMessage: String(error),
+      });
+
+      const response = fail("Internal server error", 500, "INTERNAL_ERROR");
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
   };
 };

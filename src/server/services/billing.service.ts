@@ -318,10 +318,7 @@ export const BillingService = {
     return { ok: true };
   },
 
-  async verifyWebhookSecretByReference(
-    reference: string,
-    providedSecret: string | null,
-  ) {
+  async getWebhookSecretByReference(reference: string) {
     const event = await prisma.billingEvent.findFirst({
       where: { reference, provider: "PESAPAL" },
       orderBy: { createdAt: "desc" },
@@ -333,8 +330,6 @@ export const BillingService = {
     }
 
     const gateway = await resolveGatewayForSacco(event.saccoId);
-    if (gateway.webhookSecret && providedSecret !== gateway.webhookSecret) {
-      throw new Error("Invalid webhook signature");
-    }
+    return gateway.webhookSecret;
   },
 };

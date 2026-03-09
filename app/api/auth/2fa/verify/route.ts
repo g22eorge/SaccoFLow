@@ -135,6 +135,9 @@ export const POST = withApiHandler(async (request: NextRequest) => {
   }
 
   if (!canUseDbChallenge) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Two-factor challenge storage is unavailable");
+    }
     cookieFallback = loadCookieFallback();
     const challenge = cookieFallback;
 

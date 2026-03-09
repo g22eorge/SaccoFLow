@@ -110,6 +110,10 @@ export const POST = withApiHandler(async (request: NextRequest) => {
     }
   }
 
+  if (!persistedInDb && process.env.NODE_ENV === "production") {
+    throw new Error("Two-factor challenge storage is unavailable");
+  }
+
   await OtpDeliveryService.sendCode({ channel, destination, code });
 
   const response = ok({

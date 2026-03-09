@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fail, ok, withApiHandler } from "@/src/server/api/http";
 import { MemberPaymentsService } from "@/src/server/services/member-payments.service";
+import { verifyWebhookSignature } from "@/src/server/security/webhook-signature";
 
 const webhookSchema = z.object({
   merchantReference: z.string().min(8),
@@ -10,21 +11,31 @@ const webhookSchema = z.object({
 });
 
 export const POST = withApiHandler(async (request: Request) => {
-  const parsed = webhookSchema.parse(await request.json());
-  const incomingSecret = request.headers.get("x-pesapal-secret");
+  const rawBody = await request.text();
+  const parsed = webhookSchema.parse(JSON.parse(rawBody));
 
   let result;
   try {
+    const secret = await MemberPaymentsService.getWebhookSecretByReference(
+      parsed.merchantReference,
+    );
+    verifyWebhookSignature({
+      headers: request.headers,
+      rawBody,
+      secret,
+    });
     result = await MemberPaymentsService.reconcileWebhook({
       checkoutReference: parsed.merchantReference,
       paymentStatus: parsed.paymentStatus,
       providerReference: parsed.orderTrackingId,
       payload: parsed.payload,
-      providedSecret: incomingSecret,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "Invalid webhook signature") {
-      return fail("Invalid webhook signature", 401, "INVALID_SIGNATURE");
+    if (
+      error instanceof Error &&
+      (error.message.includes("signature") || error.message.includes("Webhook secret"))
+    ) {
+      return fail(error.message, 401, "INVALID_SIGNATURE");
     }
     throw error;
   }
