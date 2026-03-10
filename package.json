@@ -23,6 +23,7 @@
     "e2e:smoke": "bun run scripts/e2e-smoke.ts",
     "auth:preprod:check": "bun run scripts/auth-preprod-check.ts",
     "workflow:integrity:check": "bun run scripts/workflow-integrity-check.ts",
+    "prod:db:check": "bun run scripts/check-production-db.ts",
     "loans:reconcile": "bun run scripts/reconcile-overdue-loans.ts",
     "members:sync-existing": "bun run scripts/sync-existing-members.ts",
     "settings:backfill-auto-decision-balanced": "bun run scripts/backfill-auto-decision-balanced.ts",

@@ -27,13 +27,24 @@ jobs:
       - name: Test
         run: bun test --max-concurrency 1
 
+      - name: Production DB check
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: bun run prod:db:check
+
       - name: Build
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ENFORCE_NON_SQLITE_PRODUCTION: "true"
         run: bun run build
 
       - name: Workflow integrity check
         run: bun run workflow:integrity:check
 
       - name: Auth preprod check
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ENFORCE_NON_SQLITE_PRODUCTION: "true"
         run: bun run auth:preprod:check --full
 
       - name: Smoke check

@@ -6,10 +6,12 @@ Use the new workflow: `.github/workflows/predeploy-verify.yml`.
 
 Required repository secrets:
 
+- `PROD_DATABASE_URL`
 - `SMOKE_BASE_URL`
-- One auth option:
-  - `SMOKE_COOKIE`, or
+- Preferred auth option (stable):
   - `SMOKE_PASSWORD` + (`SMOKE_IDENTIFIER` or `SMOKE_EMAIL`)
+- Optional fallback auth:
+  - `SMOKE_COOKIE`
 - Optional: `SMOKE_OTP_CODE`
 
 This ensures every deploy candidate runs lint, tests, build, integrity checks, auth checks, and smoke checks.

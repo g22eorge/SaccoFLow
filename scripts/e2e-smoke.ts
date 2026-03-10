@@ -72,6 +72,16 @@ const authFetch = async (path: string, init?: RequestInit) => {
 };
 
 const ensureSignedIn = async () => {
+  const hasCredentialFallback = Boolean(password && (identifier || email));
+
+  const ensureSession = async () => {
+    const session = await authFetch("/api/auth/get-session", { method: "GET" });
+    const sessionPayload = (await session.json().catch(() => null)) as
+      | { user?: { id?: string } }
+      | null;
+    return Boolean(session.ok && sessionPayload?.user?.id);
+  };
+
   if (cookieFromEnv) {
     for (const part of cookieFromEnv.split(";")) {
       const [name, ...valueParts] = part.trim().split("=");
@@ -80,7 +90,14 @@ const ensureSignedIn = async () => {
       }
       cookieJar.set(name, valueParts.join("="));
     }
-    return;
+    if (await ensureSession()) {
+      return;
+    }
+    if (!hasCredentialFallback) {
+      throw new Error(
+        "Provided SMOKE_COOKIE is not authenticated. Supply fresh cookie, or add SMOKE_PASSWORD plus SMOKE_IDENTIFIER/SMOKE_EMAIL.",
+      );
+    }
   }
 
   if (!password || (!identifier && !email)) {
@@ -152,9 +169,7 @@ const ensureSignedIn = async () => {
     throw new Error(`2FA verify failed with status ${verify2fa.status}`);
   }
 
-  const session = await authFetch("/api/auth/get-session", { method: "GET" });
-  const sessionPayload = (await session.json().catch(() => null)) as { user?: { id?: string } } | null;
-  if (!session.ok || !sessionPayload?.user?.id) {
+  if (!(await ensureSession())) {
     throw new Error("Authenticated session not ready after 2FA verification.");
   }
 };
