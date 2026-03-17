@@ -133,6 +133,15 @@ export function SignInPanel({ nextUrl }: { nextUrl: string }) {
         throw new Error("Session setup delayed. Please click Verify and continue again.");
       }
 
+      const platformProfileResponse = await fetch("/api/platform/profile", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (platformProfileResponse.ok) {
+        window.location.replace("/platform");
+        return;
+      }
+
       window.location.replace(nextUrl);
     } catch (verifyError) {
       setError(

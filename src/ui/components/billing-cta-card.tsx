@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatMoney } from "@/src/lib/money";
 
 export function BillingCtaCard({
   canManage,
@@ -20,29 +21,43 @@ export function BillingCtaCard({
       code: "STARTER",
       label: "Starter",
       memberLimit: 200,
-      monthlyAmount: "120000",
-      annualAmount: "1200000",
+      monthlyAmount: "30000",
+      annualAmount: "300000",
     },
     {
       code: "TIER_2",
       label: "Tier 2",
-      memberLimit: 1000,
-      monthlyAmount: "420000",
-      annualAmount: "4200000",
+      memberLimit: 500,
+      monthlyAmount: "45000",
+      annualAmount: "450000",
     },
     {
       code: "TIER_3",
       label: "Tier 3",
-      memberLimit: 100000,
-      monthlyAmount: "1200000",
-      annualAmount: "12000000",
+      memberLimit: 1000,
+      monthlyAmount: "60000",
+      annualAmount: "600000",
+    },
+    {
+      code: "TIER_4",
+      label: "Tier 4",
+      memberLimit: 2500,
+      monthlyAmount: "90000",
+      annualAmount: "900000",
+    },
+    {
+      code: "TIER_5",
+      label: "Tier 5",
+      memberLimit: 5000,
+      monthlyAmount: "120000",
+      annualAmount: "1200000",
     },
   ],
 }: {
   canManage: boolean;
   trialDaysLeft: number;
   status: string;
-  currentPlan?: "STARTER" | "TIER_2" | "TIER_3";
+  currentPlan?: "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5";
   currentCycle?: "MONTHLY" | "ANNUAL";
   currency?: string;
   usage?: {
@@ -52,7 +67,7 @@ export function BillingCtaCard({
     usagePercent: number;
   };
   planOptions?: Array<{
-    code: "STARTER" | "TIER_2" | "TIER_3";
+    code: "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5";
     label: string;
     memberLimit: number;
     monthlyAmount: string;
@@ -107,7 +122,7 @@ export function BillingCtaCard({
         <div className="mt-3 grid gap-2">
           <select
             value={plan}
-            onChange={(event) => setPlan(event.target.value as "STARTER" | "TIER_2" | "TIER_3")}
+            onChange={(event) => setPlan(event.target.value as "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5")}
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             {planOptions.map((option) => (
@@ -127,7 +142,7 @@ export function BillingCtaCard({
             <option value="ANNUAL">Annual billing (save more)</option>
           </select>
           <p className="text-xs text-muted-foreground">
-            Selected amount: {currency} {selectedAmount}
+            Selected amount: {currency} {formatMoney(selectedAmount)}
           </p>
         </div>
       ) : null}

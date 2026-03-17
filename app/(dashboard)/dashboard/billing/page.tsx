@@ -2,6 +2,9 @@ import { SiteHeader } from "@/components/site-header";
 import { requireSaccoContext } from "@/src/server/auth/rbac";
 import { BillingService } from "@/src/server/services/billing.service";
 import { BillingCtaCard } from "@/src/ui/components/billing-cta-card";
+import { formatMoney } from "@/src/lib/money";
+import { RecordActionsCell } from "@/src/ui/components/record-actions-cell";
+import Link from "next/link";
 
 export default async function BillingPage() {
   const { saccoId, role } = await requireSaccoContext();
@@ -35,8 +38,16 @@ export default async function BillingPage() {
                       Trial ends: {access.subscription.trialEndsAt.toLocaleDateString()}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Selected fee: {access.subscription.currency} {access.selectedAmount.toString()}
+                      Selected fee: {access.subscription.currency} {formatMoney(access.selectedAmount.toString())}
                     </p>
+                    <div className="mt-3 flex gap-2 text-xs">
+                      <Link href="/dashboard/settings" className="rounded border border-border px-2 py-1">
+                        Open settings
+                      </Link>
+                      <Link href="/dashboard/reports" className="rounded border border-border px-2 py-1">
+                        Open reports
+                      </Link>
+                    </div>
                   </section>
 
                   <BillingCtaCard
@@ -66,6 +77,7 @@ export default async function BillingPage() {
                           <th className="px-3 py-2">Status</th>
                           <th className="px-3 py-2">Amount</th>
                           <th className="px-3 py-2">Reference</th>
+                          <th className="px-3 py-2">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -75,14 +87,22 @@ export default async function BillingPage() {
                             <td className="px-3 py-2 text-xs">{event.eventType}</td>
                             <td className="px-3 py-2 text-xs">{event.status}</td>
                             <td className="px-3 py-2 text-xs font-semibold">
-                              {event.currency} {event.amount.toString()}
+                              {event.currency} {formatMoney(event.amount.toString())}
                             </td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{event.reference ?? "-"}</td>
+                            <td className="px-3 py-2 text-xs">
+                              <RecordActionsCell
+                                copyItems={[
+                                  { label: "Event ID", value: event.id },
+                                  { label: "Reference", value: event.reference },
+                                ]}
+                              />
+                            </td>
                           </tr>
                         ))}
                         {access.subscription.billingEvents.length === 0 ? (
                           <tr>
-                            <td className="px-3 py-3 text-xs text-muted-foreground" colSpan={5}>
+                            <td className="px-3 py-3 text-xs text-muted-foreground" colSpan={6}>
                               No billing events yet.
                             </td>
                           </tr>

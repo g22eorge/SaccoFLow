@@ -4,7 +4,7 @@ import { BillingService } from "@/src/server/services/billing.service";
 import { z } from "zod";
 
 const updateSchema = z.object({
-  plan: z.enum(["STARTER", "TIER_2", "TIER_3"]).optional(),
+  plan: z.enum(["STARTER", "TIER_2", "TIER_3", "TIER_4", "TIER_5"]).optional(),
   billingCycle: z.enum(["MONTHLY", "ANNUAL"]).optional(),
 });
 

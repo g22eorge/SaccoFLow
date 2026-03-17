@@ -4,6 +4,7 @@ import { SharesService } from "@/src/server/services/shares.service";
 import { SettingsService } from "@/src/server/services/settings.service";
 import { ShareTransactionForm } from "@/src/ui/forms/share-transaction-form";
 import { SharesTransactionsPanel } from "@/src/ui/components/shares-transactions-panel";
+import { RecordActionsCell } from "@/src/ui/components/record-actions-cell";
 import { formatMoney } from "@/src/lib/money";
 import { formatMemberLabel } from "@/src/lib/member-label";
 import { SiteHeader } from "@/components/site-header";
@@ -319,7 +320,7 @@ export default async function SharesPage({
                     <div className="mt-4 overflow-x-auto rounded-lg border">
                       <table className="w-full min-w-[560px] text-sm">
                         <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                          <tr><th className="px-3 py-2">Member</th><th className="px-3 py-2">Balance</th><th className="px-3 py-2">Share</th></tr>
+                          <tr><th className="px-3 py-2">Member</th><th className="px-3 py-2">Balance</th><th className="px-3 py-2">Share</th><th className="px-3 py-2">Actions</th></tr>
                         </thead>
                         <tbody>
                       {topHolders.map((holder) => {
@@ -332,6 +333,13 @@ export default async function SharesPage({
                             <td className="px-3 py-2 text-xs">{holder.label}</td>
                             <td className="px-3 py-2 text-xs font-semibold">{formatMoney(holder.balance)}</td>
                             <td className="px-3 py-2 text-xs text-muted-foreground">{holderShare.toFixed(1)}%</td>
+                            <td className="px-3 py-2 text-xs">
+                              <RecordActionsCell
+                                viewHref={`/dashboard/members?q=${encodeURIComponent(holder.label)}`}
+                                viewLabel="Find member"
+                                copyItems={[{ label: "Member ID", value: holder.memberId }]}
+                              />
+                            </td>
                           </tr>
                         );
                       })}

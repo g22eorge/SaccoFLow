@@ -6,7 +6,7 @@ import { BillingService } from "@/src/server/services/billing.service";
 
 const updateSchema = z.object({
   action: z.enum(["SUSPEND", "REACTIVATE", "UPDATE_PLAN"]),
-  plan: z.enum(["STARTER", "TIER_2", "TIER_3"]).optional(),
+  plan: z.enum(["STARTER", "TIER_2", "TIER_3", "TIER_4", "TIER_5"]).optional(),
   billingCycle: z.enum(["MONTHLY", "ANNUAL"]).optional(),
 });
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type PlanCode = "STARTER" | "TIER_2" | "TIER_3";
+type PlanCode = "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5";
 type BillingCycle = "MONTHLY" | "ANNUAL";
 
 type OrganizationRow = {

@@ -325,6 +325,7 @@ export function AuditLogsPanel({
                     <th className="px-3 py-2">Entity</th>
                     <th className="px-3 py-2">Actor</th>
                     <th className="px-3 py-2">Entity ID</th>
+                    <th className="px-3 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -356,6 +357,30 @@ export function AuditLogsPanel({
                         <td className="px-3 py-2 text-xs">{entry.entity}</td>
                         <td className="px-3 py-2 text-xs">{entry.actorName}</td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{entry.entityId}</td>
+                        <td className="px-3 py-2 text-xs">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedLogId(entry.id);
+                              }}
+                              className="rounded-md border px-2 py-1 text-[11px]"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void copyText("Event ID", entry.id);
+                              }}
+                              className="rounded-md border px-2 py-1 text-[11px]"
+                            >
+                              Copy ID
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}

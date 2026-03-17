@@ -7,6 +7,7 @@ import { SettingsService } from "@/src/server/services/settings.service";
 import { LoanManagement } from "@/src/ui/forms/loan-management";
 import { SiteHeader } from "@/components/site-header";
 import { formatMoney } from "@/src/lib/money";
+import { RecordActionsCell } from "@/src/ui/components/record-actions-cell";
 import { formatMemberLabel } from "@/src/lib/member-label";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -842,6 +843,7 @@ export default async function LoansPage({
                             <th className="px-3 py-2">Severity</th>
                             <th className="px-3 py-2">Reason</th>
                             <th className="px-3 py-2">Suggested Action</th>
+                            <th className="px-3 py-2">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -851,6 +853,13 @@ export default async function LoansPage({
                               <td className="px-3 py-2 text-xs">{warning.severity}</td>
                               <td className="px-3 py-2 text-xs text-muted-foreground">{warning.reason}</td>
                               <td className="px-3 py-2 text-xs text-muted-foreground">{warning.recommendation}</td>
+                              <td className="px-3 py-2 text-xs">
+                                <RecordActionsCell
+                                  viewHref="/dashboard/collections"
+                                  viewLabel="Open follow-up"
+                                  copyItems={[{ label: "Loan ID", value: warning.loanId }]}
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>

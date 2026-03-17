@@ -20,25 +20,37 @@ const PLAN_CONFIG: Record<
   STARTER: {
     label: "Starter",
     memberLimit: 200,
-    monthlyAmount: new Prisma.Decimal(120000),
-    annualAmount: new Prisma.Decimal(1200000),
+    monthlyAmount: new Prisma.Decimal(30000),
+    annualAmount: new Prisma.Decimal(300000),
   },
   TIER_2: {
     label: "Tier 2",
-    memberLimit: 1000,
-    monthlyAmount: new Prisma.Decimal(420000),
-    annualAmount: new Prisma.Decimal(4200000),
+    memberLimit: 500,
+    monthlyAmount: new Prisma.Decimal(45000),
+    annualAmount: new Prisma.Decimal(450000),
   },
   TIER_3: {
     label: "Tier 3",
-    memberLimit: 100000,
-    monthlyAmount: new Prisma.Decimal(1200000),
-    annualAmount: new Prisma.Decimal(12000000),
+    memberLimit: 1000,
+    monthlyAmount: new Prisma.Decimal(60000),
+    annualAmount: new Prisma.Decimal(600000),
+  },
+  TIER_4: {
+    label: "Tier 4",
+    memberLimit: 2500,
+    monthlyAmount: new Prisma.Decimal(90000),
+    annualAmount: new Prisma.Decimal(900000),
+  },
+  TIER_5: {
+    label: "Tier 5",
+    memberLimit: 5000,
+    monthlyAmount: new Prisma.Decimal(120000),
+    annualAmount: new Prisma.Decimal(1200000),
   },
 };
 
 const normalizePlan = (plan: SubscriptionPlan | string | null | undefined): SubscriptionPlan => {
-  if (plan === "TIER_2" || plan === "TIER_3" || plan === "STARTER") {
+  if (plan === "STARTER" || plan === "TIER_2" || plan === "TIER_3" || plan === "TIER_4" || plan === "TIER_5") {
     return plan;
   }
   return "STARTER";

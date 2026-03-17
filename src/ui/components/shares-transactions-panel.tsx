@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { formatMoney } from "@/src/lib/money";
 import { formatDateTimeUtc } from "@/src/lib/datetime";
 
@@ -25,6 +26,7 @@ export function SharesTransactionsPanel({
   const [sortBy, setSortBy] = useState<"latest" | "highest">("latest");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const toNumber = (value: string) => Number(value.replace(/[^0-9.-]/g, ""));
 
@@ -64,6 +66,17 @@ export function SharesTransactionsPanel({
       page: "1",
     });
     window.location.href = `/api/shares/export?${params.toString()}`;
+  };
+
+  const copyTransactionId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopyMessage("Transaction ID copied.");
+      window.setTimeout(() => setCopyMessage(null), 1800);
+    } catch {
+      setCopyMessage("Could not copy transaction ID.");
+      window.setTimeout(() => setCopyMessage(null), 1800);
+    }
   };
 
   return (
@@ -196,6 +209,7 @@ export function SharesTransactionsPanel({
                 <th className="px-3 py-2">Amount</th>
                 <th className="px-3 py-2">Note</th>
                 <th className="px-3 py-2">Created</th>
+                <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -206,12 +220,31 @@ export function SharesTransactionsPanel({
                   <td className="px-3 py-2 text-xs">{formatMoney(transaction.amount)}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{transaction.note ?? "-"}</td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">{formatDateTimeUtc(transaction.createdAt)}</td>
+                  <td className="px-3 py-2 text-xs">
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/dashboard/members?q=${encodeURIComponent(transaction.memberLabel)}`}
+                        className="rounded border border-border px-2 py-1"
+                      >
+                        Find member
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void copyTransactionId(transaction.id)}
+                        className="rounded border border-border px-2 py-1"
+                      >
+                        Copy ID
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {copyMessage ? <p className="mt-2 text-xs text-muted-foreground">{copyMessage}</p> : null}
 
       {visibleTransactions.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">

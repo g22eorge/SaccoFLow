@@ -20,7 +20,7 @@ const signalTone = (status: "Strong" | "Watch" | "Critical") =>
 export default async function MembersPage({
   searchParams,
 }: {
-  searchParams?: { page?: string };
+  searchParams?: { page?: string; q?: string };
 }) {
   const { saccoId, role } = await requireSaccoContext();
   if (
@@ -29,8 +29,12 @@ export default async function MembersPage({
     redirect("/dashboard");
   }
   const page = Math.max(1, Number(searchParams?.page ?? "1") || 1);
+  const query = searchParams?.q?.trim() ?? "";
+  const baseParams = {
+    ...(query ? { q: query } : {}),
+  };
   const canManageMembers = ["SACCO_ADMIN", "SUPER_ADMIN", "TREASURER"].includes(role);
-  const members = await MembersService.list({ saccoId, page });
+  const members = await MembersService.list({ saccoId, page, search: query || undefined });
   const hasNextPage = members.length === 20;
   const balances = await Promise.all(
     members.map(async (member) => ({
@@ -382,19 +386,37 @@ export default async function MembersPage({
                 </div>
 
                 <CreateMemberForm canCreate={canManageMembers} />
-                <MembersTable members={tableMembers} canManage={canManageMembers} />
+                <MembersTable
+                  members={tableMembers}
+                  canManage={canManageMembers}
+                  initialQuery={query}
+                />
 
                 <section className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <Link
-                      href={page > 1 ? `/dashboard/members?page=${page - 1}` : "#"}
+                      href={
+                        page > 1
+                          ? `/dashboard/members?${new URLSearchParams({
+                              ...baseParams,
+                              page: String(page - 1),
+                            }).toString()}`
+                          : "#"
+                      }
                       className={`text-sm ${page > 1 ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
                     >
                       Previous
                     </Link>
                     <span className="text-sm text-muted-foreground">Page {page}</span>
                     <Link
-                      href={hasNextPage ? `/dashboard/members?page=${page + 1}` : "#"}
+                      href={
+                        hasNextPage
+                          ? `/dashboard/members?${new URLSearchParams({
+                              ...baseParams,
+                              page: String(page + 1),
+                            }).toString()}`
+                          : "#"
+                      }
                       className={`text-sm ${hasNextPage ? "text-[#cc5500]" : "pointer-events-none text-muted-foreground"}`}
                     >
                       Next

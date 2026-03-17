@@ -29,15 +29,17 @@ const memberStatusChipClass = (status: string) => {
 export function MembersTable({
   members,
   canManage,
+  initialQuery = "",
 }: {
   members: MemberRow[];
   canManage: boolean;
+  initialQuery?: string;
 }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [sortBy, setSortBy] = useState<"name" | "savings">("name");
 

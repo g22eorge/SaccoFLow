@@ -178,12 +178,13 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
                   <th className="px-3 py-2">Priority</th>
                   <th className="px-3 py-2">Amount Left</th>
                   <th className="px-3 py-2">Reason</th>
-                  <th className="px-3 py-2">Recommended Action</th>
-                  <th className="px-3 py-2">Due</th>
-                  <th className="px-3 py-2">Last Action</th>
-                </tr>
-              </thead>
-              <tbody>
+                <th className="px-3 py-2">Recommended Action</th>
+                <th className="px-3 py-2">Due</th>
+                <th className="px-3 py-2">Last Action</th>
+                <th className="px-3 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
                 {visibleCases.map((entry) => (
                   <tr key={entry.loanId} className="border-t hover:bg-muted/40">
                     <td className="min-w-[25ch] px-3 py-2 text-xs">{entry.memberName}</td>
@@ -199,6 +200,20 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
                         ? `${entry.lastActionType ?? "ACTION"} | ${formatDateTimeUtc(entry.lastActionAt)}`
                         : "No action"}
                     </td>
+                    <td className="px-3 py-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedLoanId(entry.loanId);
+                          document
+                            .getElementById("record-collection-action")
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className="rounded border border-border px-2 py-1"
+                      >
+                        Follow-up
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -211,7 +226,7 @@ export function CollectionsWorkbench({ cases }: { cases: CollectionCase[] }) {
         ) : null}
       </section>
 
-      <form onSubmit={submitAction} className="rounded-lg border bg-card p-6">
+      <form id="record-collection-action" onSubmit={submitAction} className="rounded-lg border bg-card p-6">
           <h2 className="text-lg font-semibold">Record Follow-up Action</h2>
           <p className="mt-1 text-sm text-muted-foreground">
           Log outreach and follow-up commitments for better case tracking.

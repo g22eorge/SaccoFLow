@@ -1,4 +1,8 @@
-import { requireAuth, requireSaccoContext } from "@/src/server/auth/rbac";
+import {
+  UnauthorizedError,
+  requireAuth,
+  requireSaccoContext,
+} from "@/src/server/auth/rbac";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
@@ -14,7 +18,19 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const session = await requireAuth();
-  const context = await requireSaccoContext();
+  let context;
+  try {
+    context = await requireSaccoContext();
+  } catch (error) {
+    if (
+      error instanceof UnauthorizedError &&
+      error.message ===
+        "Platform account requires an assumed tenant session for SACCO access"
+    ) {
+      redirect("/platform");
+    }
+    throw error;
+  }
   const { role } = context;
 
   if (String(role) === "PLATFORM_SUPER_ADMIN") {

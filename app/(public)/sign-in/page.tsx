@@ -13,7 +13,8 @@ export default function SignInPage({
       : "/dashboard";
 
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-8 px-6 py-10 lg:grid-cols-2 lg:items-center">
+    <main className="min-h-screen bg-[#fffaf5] [color-scheme:light]">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-10 lg:grid-cols-2 lg:items-center">
       <section className="space-y-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-[#cc5500]">Welcome Back</p>
         <h1 className="text-4xl font-bold leading-tight">Sign in to your SACCO workspace</h1>
@@ -26,8 +27,12 @@ export default function SignInPage({
             Create a SACCO account
           </Link>
         </div>
+        <Link href="/" className="inline-flex text-sm font-medium text-[#cc5500]">
+          Back to landing page
+        </Link>
       </section>
       <SignInPanel nextUrl={nextUrl} />
+      </div>
     </main>
   );
 }

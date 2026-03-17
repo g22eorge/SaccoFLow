@@ -14,7 +14,7 @@ export function BillingPaywall({
   role: string;
   trialDaysLeft: number;
   status: string;
-  plan: "STARTER" | "TIER_2" | "TIER_3";
+  plan: "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5";
   billingCycle: "MONTHLY" | "ANNUAL";
   currency: string;
   usage: {
@@ -24,7 +24,7 @@ export function BillingPaywall({
     usagePercent: number;
   };
   planOptions: Array<{
-    code: "STARTER" | "TIER_2" | "TIER_3";
+    code: "STARTER" | "TIER_2" | "TIER_3" | "TIER_4" | "TIER_5";
     label: string;
     memberLimit: number;
     monthlyAmount: string;
